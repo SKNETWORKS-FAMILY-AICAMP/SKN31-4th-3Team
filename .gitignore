@@ -1,0 +1,26 @@
+# ── Python / Django ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.sqlite3
+server/staticfiles/
+server/media/
+
+# ── 시크릿 — 절대 커밋하지 않는다 ───────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Node / Vite ──────────────────────────────────────────────────
+node_modules/
+dist/
+*.local
+
+# ── 도구 ─────────────────────────────────────────────────────────
+.DS_Store
+.pytest_cache/
+.vscode/
+.idea/
+
+./data/bible_structured.json

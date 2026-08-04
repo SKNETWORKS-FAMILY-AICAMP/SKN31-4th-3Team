@@ -1,0 +1,45 @@
+/*
+ * 대화는 다른 화면과 달리 "화면 높이를 채우고 아래가 고정"인 레이아웃이다.
+ * 모바일에서 입력창이 키보드에 밀리지 않도록 dvh 와 safe-area 를 함께 쓴다.
+ */
+.screen {
+  position: relative;
+  z-index: var(--z-content);
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--header-space) clamp(var(--sp-4), 5vw, var(--sp-8)) var(--sp-4);
+  padding-bottom: calc(var(--sp-4) + var(--safe-bottom));
+}
+
+.panel {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: var(--width-panel);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  background: var(--bg-scrim);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-5);
+}
+
+/* 입력창은 항상 아래에 붙어 있다 — 대화 중 찾아 헤매지 않게 */
+.composer {
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .screen { padding: var(--header-space) var(--sp-3) var(--sp-4); padding-bottom: calc(var(--sp-3) + var(--safe-bottom)); }
+  .panel { padding: var(--sp-4) var(--sp-3); border-radius: var(--radius-md); }
+}
+
+/* 큰 화면에서는 대화 폭을 조금 넓혀 읽기 좋게 */
+@media (min-width: 1024px) {
+  .panel { max-width: 720px; }
+}

@@ -1,0 +1,100 @@
+/*
+ * 둘러보기를 그만둔 직후의 한 줄.
+ *
+ * 화면 아래 가운데. 잠깐 떴다 사라지는 것이므로 어디에도 붙지 않고
+ * 공중에 뜬 채로 있는다. 판이 아니라 아주 얕은 유리 한 겹이다.
+ */
+
+.root {
+  position: fixed;
+  left: 50%;
+  bottom: calc(clamp(var(--sp-5), 5vh, var(--sp-7)) + var(--safe-bottom));
+  transform: translateX(-50%);
+  z-index: var(--z-guide);
+
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  max-width: calc(100vw - 32px);
+
+  padding: var(--sp-3) var(--sp-5);
+  background: rgba(3, 3, 5, 0.66);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-pill);
+
+  /*
+   * 포인터를 통과시킨다.
+   * 이 한 줄 때문에 그 아래 별 하나가 안 눌리면 안 된다.
+   * 버튼만 다시 받는다.
+   */
+  pointer-events: none;
+
+  /* 떴다가 잠시 머물고 스스로 걷힌다 */
+  animation:
+    hintIn var(--dur-slow) var(--ease-out) both,
+    hintOut var(--dur-slow) var(--ease-out) 5.2s both;
+}
+
+@keyframes hintIn {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes hintOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.text {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-2);
+  word-break: keep-all;
+}
+
+.where {
+  font-weight: var(--fw-medium);
+  color: var(--ink-0);
+}
+
+.reopen {
+  flex: none;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-caption);
+  letter-spacing: 0.06em;
+  color: var(--light-warm);
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: rgba(242, 233, 216, 0.35);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.reopen:hover { color: var(--ink-0); }
+
+.reopen:focus-visible {
+  outline: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--glow-focus);
+}
+
+@media (max-width: 640px) {
+  .root {
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--radius-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root { animation: none; }
+}

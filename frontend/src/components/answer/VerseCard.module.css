@@ -1,0 +1,62 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-md);
+  background: var(--bg-1);
+  transition: border-color var(--dur-base) var(--ease-out);
+}
+
+.card:hover { border-color: var(--line-1); }
+
+.quote {
+  /* 구절임을 알리는 최소 장치. 따옴표 그래픽 같은 장식은 쓰지 않는다. */
+  border-left: 2px solid var(--light-warm);
+  padding-left: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.ref {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  font-style: normal;
+}
+
+.summary {
+  font-size: var(--fs-small);
+  line-height: var(--lh-normal);
+  color: var(--ink-2);
+  word-break: keep-all;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.tag {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-pill);
+  padding: 2px var(--sp-3);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}
+
+@media (max-width: 640px) {
+  .card { padding: var(--sp-4); }
+  .actions > * { flex: 1; }
+}

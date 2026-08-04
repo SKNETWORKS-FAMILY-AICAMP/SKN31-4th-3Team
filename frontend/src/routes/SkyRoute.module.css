@@ -1,0 +1,91 @@
+/*
+ * 탐색 화면은 다른 라우트와 달리 화면을 비운다.
+ * 콘텐츠가 캔버스를 가리면 "탐색 공간"이라는 감각이 사라진다.
+ */
+.screen {
+  position: relative;
+  z-index: var(--z-content);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--header-space) clamp(var(--sp-4), 5vw, var(--sp-8)) var(--sp-6);
+  padding-bottom: calc(var(--sp-6) + var(--safe-bottom));
+  /* 목록이 닫혀 있을 때 캔버스를 누를 수 있어야 한다 */
+  pointer-events: none;
+}
+
+/* 실제 조작 요소만 포인터를 되받는다 */
+.screen > * { pointer-events: auto; }
+
+.hint {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  align-self: center;
+  text-align: center;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+  background: var(--bg-scrim);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-pill);
+  padding: var(--sp-3) var(--sp-5);
+  word-break: keep-all;
+  /* 안내문은 클릭을 가로채지 않는다 */
+  pointer-events: none;
+}
+
+.scale {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+@media (max-width: 640px) {
+  .screen { padding: var(--header-space) var(--sp-4) var(--sp-5); }
+  .hint { border-radius: var(--radius-md); }
+}
+
+/* 은하 선택 탭 — 520개를 은하 단위로 나눠 보여 준다 */
+.galaxyTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
+.galaxyTab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--bg-1);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.galaxyTab:hover { border-color: var(--line-2); color: var(--ink-1); }
+
+.galaxyTab[aria-selected='true'] {
+  border-color: var(--light-silver);
+  color: var(--light-warm);
+  background: var(--bg-2);
+}
+
+.tabSwatch {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.tabCount {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}

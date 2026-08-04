@@ -1,0 +1,5 @@
+.root {
+  position: relative;
+  z-index: var(--z-content);
+  min-height: 100dvh;
+}

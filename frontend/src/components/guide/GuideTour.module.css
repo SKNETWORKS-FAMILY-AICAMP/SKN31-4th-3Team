@@ -1,0 +1,526 @@
+/*
+ * 이용 안내.
+ *
+ * 기조는 나머지 화면과 같다 — 배경은 유리처럼 흐려진 어둠, 선은 거의
+ * 보이지 않을 만큼 얇게, 강조는 색이 아니라 빛으로.
+ *
+ * 상자를 그리지 않는다. 대상을 감싸는 것도 테두리가 아니라 스민 빛이다.
+ */
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-guide);
+  pointer-events: none;
+}
+
+/*
+ * 차단막 — 네 조각.
+ *
+ * ★ 통짜가 아닌 이유
+ *   튜토리얼은 읽는 것이 아니라 해 보는 것이다. 화면 전체를 막으면
+ *   "눌러 보세요"라고 써 놓고 누를 수 없는 화면이 된다. 지금 눌러야 할
+ *   자리만 남기고 그 둘레를 조각으로 덮는다.
+ *
+ * ★ 완전히 가리지 않는다
+ *   지금 무엇을 설명하는지 배경이 보여야 한다. 아주 얕은 블러만 얹어
+ *   별은 남되 시선은 카드로 오게 한다.
+ */
+.veil {
+  position: absolute;
+  pointer-events: auto;
+  background: rgba(3, 3, 5, 0.5);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: veilIn var(--dur-base) var(--ease-out) both;
+}
+
+@keyframes veilIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/*
+ * 강조 링.
+ *
+ * ★ 대상을 밝히지 않고, 그 둘레를 밝힌다.
+ *   대상 위에 흰 판을 얹으면 원래 모습이 가려진다. 링은 바깥으로만
+ *   퍼지므로 대상은 원래 그대로 보인다.
+ *
+ * ★ box-shadow 두 겹.
+ *   안쪽 한 겹이 윤곽을 잡고, 바깥 한 겹이 넓게 번진다.
+ *   한 겹만 쓰면 선이거나 안개거나 둘 중 하나가 된다.
+ */
+.ring {
+  position: absolute;
+  border-radius: var(--radius-md);
+  pointer-events: none;
+  box-shadow:
+    0 0 0 1px rgba(242, 233, 216, 0.28),
+    0 0 22px 2px rgba(232, 236, 242, 0.14),
+    0 0 60px 8px rgba(205, 216, 230, 0.08);
+  animation: ringIn var(--dur-slow) var(--ease-out) both;
+  transition:
+    top var(--dur-base) var(--ease-out),
+    left var(--dur-base) var(--ease-out),
+    width var(--dur-base) var(--ease-out),
+    height var(--dur-base) var(--ease-out);
+}
+
+@keyframes ringIn {
+  from { opacity: 0; transform: scale(1.04); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/*
+ * ── 막혔을 때 ────────────────────────────────────────────────────
+ *
+ * 채워야 넘어가는 자리에서 빈 채로 "다음"을 눌렀다.
+ *
+ * ★ 두 가지를 동시에 한다
+ *   색이 잉걸불로 바뀌고(무엇이 문제인지), 좌우로 짧게 흔들린다(거절됐다는
+ *   감각). 색만 바꾸면 색을 구분하지 못하는 사람에게 아무 일도 일어나지
+ *   않고, 흔들기만 하면 어디가 문제인지 알 수 없다.
+ *
+ * ★ 짧게 끝낸다
+ *   0.5초. 더 길면 화면을 꾸짖는 느낌이 되고, 이 서비스의 결이 아니다.
+ *   끝나면 잉걸불 테두리만 남아 무엇을 봐야 하는지 계속 알려 준다.
+ */
+.ringBlocked {
+  /* 흔들림이 끝난 뒤에도 표시가 남도록 forwards 로 마지막 프레임을 붙든다 */
+  animation: ringShake 0.5s var(--ease-in-out) both;
+  /* 위치 추적 transition 을 잠시 끈다 — 흔들림과 겹치면 미끄러진다 */
+  transition: none;
+}
+
+@keyframes ringShake {
+  /* 색은 시작하자마자 바뀌어 끝까지 남는다 */
+  0% {
+    transform: translateX(0);
+    box-shadow:
+      0 0 0 1px var(--alert-line),
+      0 0 24px 2px var(--alert-glow),
+      0 0 64px 10px var(--alert-glow);
+  }
+  15% { transform: translateX(-7px); }
+  30% { transform: translateX(6px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+  75% { transform: translateX(-2px); }
+  100% {
+    transform: translateX(0);
+    box-shadow:
+      0 0 0 1px var(--alert-line),
+      0 0 22px 2px var(--alert-glow),
+      0 0 56px 8px rgba(224, 138, 128, 0.14);
+  }
+}
+
+/* ── 카드 ──────────────────────────────────────────────────────── */
+
+.card {
+  position: absolute;
+  width: min(380px, calc(100vw - 32px));
+  pointer-events: auto;
+
+  padding: var(--sp-5);
+  background: var(--bg-scrim);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), var(--glow-soft);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+
+  transition:
+    top var(--dur-base) var(--ease-out),
+    left var(--dur-base) var(--ease-out);
+  animation: cardIn var(--dur-slow) var(--ease-out) both;
+}
+
+.card:focus-visible {
+  outline: none;
+  border-color: var(--line-2);
+}
+
+/*
+ * ── 무대 단계 ────────────────────────────────────────────────────
+ *
+ * 시점 돌리기, 별 고르기처럼 화면 한가운데를 직접 만져 봐야 하는 단계.
+ *
+ * ★ 가운데를 절대 덮지 않는다
+ *   "하늘을 끌어 보세요"라고 하면서 하늘 한복판에 카드를 세우면
+ *   끌 자리가 없다. 왼쪽 아래로 물린다 — 메뉴는 왼쪽 위, 계정은
+ *   오른쪽 위, MBTI 목록은 오른쪽 가운데. 비어 있는 유일한 구석이다.
+ *
+ * ★ 차단막도 없다 (GuideTour.tsx 에서 조각을 만들지 않는다)
+ *   막이 있으면 아무리 카드를 비켜 놔도 조작이 통하지 않는다.
+ *
+ * ★ 조금 더 작고 조금 더 투명하다
+ *   지금 주인공은 카드가 아니라 하늘이다.
+ */
+.stageCard {
+  top: auto;
+  left: clamp(var(--sp-4), 3vw, var(--sp-6));
+  bottom: clamp(var(--sp-5), 4vh, var(--sp-7));
+  width: min(320px, calc(100vw - 32px));
+  padding: var(--sp-4) var(--sp-5);
+  background: rgba(3, 3, 5, 0.62);
+  transition: none;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.close {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+
+  border: none;
+  background: none;
+  border-radius: var(--radius-pill);
+  color: var(--ink-3);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.close:hover {
+  color: var(--ink-0);
+  background: rgba(244, 244, 242, 0.06);
+}
+
+.close:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-focus);
+}
+
+.eyebrow {
+  margin: 0;
+  /* 닫기 버튼과 겹치지 않게 오른쪽을 비워 둔다 */
+  padding-right: var(--sp-6);
+  font-size: var(--fs-caption);
+  letter-spacing: var(--tracking-wide);
+  color: var(--ink-3);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-title);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink-0);
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.body {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-normal);
+  color: var(--ink-2);
+  word-break: keep-all;
+  /* 시나리오에서 의미 단위로 끊어 둔 줄바꿈을 그대로 그린다 */
+  white-space: pre-line;
+}
+
+/*
+ * 권유 문구 — "이걸 해 보세요".
+ *
+ * 설명과 다른 결로 둔다. 읽을 것과 해 볼 것이 같은 모양이면 사람은
+ * 둘 다 읽기만 한다. 색을 온백으로 올리고 앞에 표식을 하나 세운다.
+ */
+.action {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-normal);
+  color: var(--light-warm);
+  word-break: keep-all;
+  white-space: pre-line;
+}
+
+/*
+ * 표식.
+ * 화살표나 아이콘을 두지 않는다 — 작은 빛점 하나가 이 화면의 언어다.
+ * 아주 느리게 숨 쉬어 "지금 여기"라는 감각만 남긴다.
+ */
+.actionMark {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin-top: 1px;
+  border-radius: var(--radius-pill);
+  background: var(--light-warm);
+  box-shadow: 0 0 10px rgba(242, 233, 216, 0.6);
+  animation: markBreath 2.8s var(--ease-breath) infinite;
+}
+
+@keyframes markBreath {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+
+/*
+ * 경고 한 줄.
+ *
+ * 권유 문구를 대체하지 않고 그 아래에 붙는다 — 무엇을 해야 하는지는
+ * 여전히 보여야 하고, 이것은 "아직 그게 안 됐다"는 덧말이다.
+ * 판을 두르지 않는다. 잉걸불 색 글자 하나와 앞의 짧은 선이면 충분하다.
+ */
+.warn {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-caption);
+  line-height: var(--lh-normal);
+  color: var(--alert);
+  word-break: keep-all;
+  animation: warnIn var(--dur-base) var(--ease-out) both;
+}
+
+/* 글자 앞에 서는 짧은 선. 권유 문구의 빛점과 구별되는 모양이어야 한다. */
+.warn::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 1px;
+  margin-top: 8px;
+  background: var(--alert);
+}
+
+@keyframes warnIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 하단 ──────────────────────────────────────────────────────── */
+
+/*
+ * 하단.
+ *
+ * ★ 버튼은 절대 줄지 않는다.
+ *   버튼이 셋(이전·건너뛰기·다음)까지 늘어나면 남는 폭이 좁아지고,
+ *   그때 버튼이 줄어들면 "이 전" 처럼 글자가 세로로 뭉갠다.
+ *   줄어드는 쪽은 진행 표시다 — 점은 몇 개 가려도 읽는 데 지장이 없다.
+ */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+
+.dots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 5px;
+}
+
+.dot,
+.dotActive {
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    width var(--dur-base) var(--ease-out);
+}
+
+.dot { background: var(--line-1); }
+
+/* 현재 단계만 짧은 막대가 된다 — 색만으로 구분하지 않는다 */
+.dotActive {
+  width: 14px;
+  background: var(--light-warm);
+}
+
+.count {
+  font-size: var(--fs-caption);
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: none;
+}
+
+.quiet {
+  border: none;
+  background: none;
+  padding: var(--sp-2) var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  /* 좁아져도 글자가 세로로 접히지 않는다 */
+  white-space: nowrap;
+  flex: none;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.quiet:hover { color: var(--ink-1); }
+.quiet:focus-visible { outline: none; box-shadow: var(--glow-focus); }
+
+/*
+ * 다음.
+ * 화면에서 유일하게 채워진 요소다 — 어디를 눌러야 이어지는지 고민할 일이
+ * 없어야 한다. 그래도 흰 덩어리가 되지 않게 투명도를 남긴다.
+ */
+.next {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: var(--sp-2) var(--sp-4);
+  font: inherit;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.06em;
+  color: var(--void);
+  background: var(--light-warm);
+  border: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+
+.next:hover {
+  background: var(--ink-0);
+  box-shadow: 0 0 24px rgba(242, 233, 216, 0.22);
+}
+
+.next:focus-visible { outline: none; box-shadow: var(--glow-focus); }
+
+/* 화살표만 살짝 움직여 "이어진다"는 감각을 준다 */
+.chevron {
+  display: inline-block;
+  font-size: 15px;
+  line-height: 1;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.next:hover .chevron { transform: translateX(2px); }
+
+.stop {
+  align-self: flex-start;
+  margin-top: var(--sp-1);
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-1);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.stop:hover { color: var(--ink-2); }
+.stop:focus-visible { outline: none; box-shadow: var(--glow-focus); }
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── 모바일 ─────────────────────────────────────────────────────── */
+/*
+ * 좁은 화면에서는 대상 옆에 카드를 놓을 자리가 없다. 아래에 시트로 붙인다 —
+ * 링은 그대로 두므로 무엇을 가리키는지는 여전히 보인다.
+ */
+@media (max-width: 640px) {
+  .card {
+    top: auto !important;
+    left: var(--sp-3) !important;
+    right: var(--sp-3);
+    bottom: calc(var(--sp-4) + var(--safe-bottom));
+    width: auto;
+    padding: var(--sp-4);
+  }
+
+  .footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-3);
+  }
+
+  .actions { justify-content: flex-end; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .veil,
+  .ring,
+  .card,
+  .actionMark,
+  .warn {
+    animation: none;
+  }
+
+  /*
+   * ★ 흔들기는 멈추되 표시는 남긴다.
+   *   모션을 줄인 사용자에게도 "여기가 문제다"는 전달돼야 한다.
+   *   움직임 대신 색과 글자만으로 같은 말을 한다.
+   */
+  .ringBlocked {
+    animation: none;
+    box-shadow:
+      0 0 0 1px var(--alert-line),
+      0 0 22px 2px var(--alert-glow);
+  }
+  .ring,
+  .card {
+    transition: none;
+  }
+  /* 표식은 남긴다 — 숨만 멈춘다. 사라지면 "해 볼 것"이라는 구분이 없어진다 */
+  .actionMark { opacity: 1; }
+  .chevron { transition: none; }
+}

@@ -1,0 +1,19 @@
+.scene {
+  position: relative;
+  height: 140px;
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(232, 236, 242, 0.04), transparent 70%),
+    var(--bg-0);
+}
+
+.canvas {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 640px) {
+  .scene { height: 108px; }
+}

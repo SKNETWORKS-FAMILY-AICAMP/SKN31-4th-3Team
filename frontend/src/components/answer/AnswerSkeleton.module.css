@@ -1,0 +1,54 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.lineGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.line {
+  display: block;
+  height: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--line-0);
+  animation: pulse 1.6s var(--ease-breath) infinite;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.card {
+  display: block;
+  height: 132px;
+  border: 1px solid var(--line-0);
+  border-left: 2px solid var(--line-1);
+  border-radius: var(--radius-md);
+  background: var(--bg-1);
+  animation: pulse 1.6s var(--ease-breath) infinite;
+}
+
+.line:nth-child(2) { animation-delay: 120ms; }
+.card:nth-child(2) { animation-delay: 200ms; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* 모션 축소 시 깜빡임을 완전히 제거한다 */
+@media (prefers-reduced-motion: reduce) {
+  .line, .card { animation: none; opacity: 0.7; }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px; height: 1px; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}

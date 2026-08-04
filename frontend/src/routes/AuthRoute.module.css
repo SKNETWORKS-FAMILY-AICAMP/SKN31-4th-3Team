@@ -1,0 +1,142 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* 이메일·이름·비밀번호 묶음. 튜토리얼이 한 덩어리로 가리킨다. */
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  /* fieldset 로도 쓰인다 — 브라우저 기본 테두리와 여백을 지운다 */
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-inline-size: 0;
+}
+
+/*
+ * ── MBTI 판 ──────────────────────────────────────────────────────
+ *
+ * 4×4. 16개가 한눈에 들어와야 "여기서 하나를 고르는구나"가 즉시 읽힌다.
+ * 좁은 화면에서는 2열로 접히므로 열 수를 고정하지 않고 auto-fit 으로 둔다.
+ */
+.mbtiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+
+.mbtiChip {
+  padding: var(--sp-3) var(--sp-1);
+  font: inherit;
+  font-size: var(--fs-caption);
+  letter-spacing: 0.1em;
+  color: var(--ink-2);
+  background: var(--bg-1);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+
+.mbtiChip:hover {
+  color: var(--ink-0);
+  border-color: var(--line-1);
+}
+
+/*
+ * 고른 것.
+ * 채우지 않고 빛으로 표시한다 — 오른쪽 목록에서 내 유형이 빛나는 것과
+ * 같은 언어를 여기서 미리 쓴다. 가입할 때 본 표시를 하늘에서 다시 만난다.
+ */
+.mbtiChip[aria-checked='true'] {
+  color: var(--light-warm);
+  background: var(--bg-2);
+  border-color: rgba(242, 233, 216, 0.34);
+  box-shadow:
+    0 0 0 1px rgba(242, 233, 216, 0.12),
+    0 0 20px rgba(242, 233, 216, 0.14);
+}
+
+.mbtiChip:focus-visible {
+  outline: none;
+  box-shadow: var(--glow-focus);
+}
+
+@media (max-width: 420px) {
+  .mbtiGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mbtiChip { transition: color var(--dur-fast) linear; }
+}
+
+.label {
+  font-size: var(--fs-caption);
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+}
+
+.input {
+  width: 100%;
+  padding: var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-body);
+  color: var(--light-warm);
+  background: var(--bg-1);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-md);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--light-silver);
+}
+
+.hint {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  word-break: keep-all;
+}
+
+/* 오류는 입력 아래에 조용히 붙는다 — 팝업으로 띄우면 맥락이 끊긴다 */
+.error {
+  margin: 0;
+  padding: var(--sp-3);
+  font-size: var(--fs-small);
+  color: var(--light-warm);
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-md);
+  word-break: keep-all;
+}
+
+.switch {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--ink-3);
+}
+
+.link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--light-warm);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}

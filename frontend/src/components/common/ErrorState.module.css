@@ -1,0 +1,31 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  padding: var(--sp-5);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-md);
+  background: var(--bg-1);
+}
+
+.message {
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  color: var(--ink-1);
+  word-break: keep-all;
+}
+
+/*
+ * 원인 한 줄.
+ * 서버가 알려 준 설명을 그대로 싣되, 첫 줄보다 확실히 뒤로 물린다.
+ * 긴 영어 오류가 와도 상자를 밀지 않게 줄바꿈을 허용한다.
+ */
+.detail {
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-3);
+  word-break: break-word;
+}

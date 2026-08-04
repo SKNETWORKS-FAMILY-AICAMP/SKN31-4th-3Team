@@ -1,0 +1,91 @@
+/* 모든 라우트가 공유하는 레이아웃 원시 요소 */
+
+.screen {
+  position: relative;
+  z-index: var(--z-content);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--header-space) clamp(var(--sp-4), 5vw, var(--sp-8)) var(--sp-6);
+  padding-bottom: calc(var(--sp-6) + var(--safe-bottom));
+}
+
+.centered {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--sp-5);
+}
+
+.panel {
+  width: 100%;
+  max-width: var(--width-panel);
+  margin-inline: auto;
+  background: var(--bg-scrim);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-6);
+}
+
+.wide {
+  max-width: var(--width-page);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  align-items: center;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+
+/* ── 태블릿: 패널 폭을 조금 넓혀 글줄이 짧아지지 않게 ───────────── */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .panel { max-width: 640px; }
+}
+
+/* ── 모바일 ─────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .screen {
+    padding: var(--header-space) var(--sp-3) var(--sp-4);
+    padding-bottom: calc(var(--sp-4) + var(--safe-bottom));
+  }
+
+  /*
+   * 좁은 화면에서는 패널이 카드가 아니라 바닥에 붙은 시트처럼 보이게 한다.
+   * 좌우 여백을 없애 글줄을 최대한 확보한다.
+   */
+  .panel {
+    padding: var(--sp-5) var(--sp-4);
+    border-radius: var(--radius-md);
+  }
+
+  .topBar { margin-bottom: var(--sp-4); }
+
+  /* 상단 바 버튼이 두 줄로 접히면 화면이 지저분해진다 */
+  .topBar > * { flex-shrink: 0; }
+}
+
+/* ── 아주 좁은 화면 (360px 이하) ─────────────────────────────────── */
+@media (max-width: 380px) {
+  .screen { padding-inline: var(--sp-2); }
+  .panel { padding-inline: var(--sp-3); }
+}
