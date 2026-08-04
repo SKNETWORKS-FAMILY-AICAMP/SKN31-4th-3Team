@@ -1,0 +1,451 @@
+openapi: 3.0.3
+info:
+  title: Chatbot Service API
+  version: 1.0.0
+  description: Django 기반 AI 챗봇 백엔드 API 문서입니다.
+paths:
+  /api/v1/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/v1/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      description: |-
+        로그인한 유저의 본인 정보 조회 API
+        GET /api/v1/auth/me/
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/auth/register/:
+    post:
+      operationId: auth_register_create
+      description: |-
+        회원가입 API
+        POST /api/v1/auth/register/
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Register'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Register'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Register'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Register'
+          description: ''
+  /api/v1/chat/sessions/:
+    get:
+      operationId: chat_sessions_list
+      description: |-
+        대화방 목록 조회 및 새 대화방 생성 API
+        GET /api/v1/chat/sessions/
+        POST /api/v1/chat/sessions/
+      tags:
+      - chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatSession'
+          description: ''
+    post:
+      operationId: chat_sessions_create
+      description: |-
+        대화방 목록 조회 및 새 대화방 생성 API
+        GET /api/v1/chat/sessions/
+        POST /api/v1/chat/sessions/
+      tags:
+      - chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChatSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChatSession'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSession'
+          description: ''
+  /api/v1/chat/sessions/{id}/:
+    get:
+      operationId: chat_sessions_retrieve
+      description: |-
+        특정 대화방 상세 조회 및 삭제 API
+        GET /api/v1/chat/sessions/<int:pk>/
+        DELETE /api/v1/chat/sessions/<int:pk>/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSessionDetail'
+          description: ''
+    delete:
+      operationId: chat_sessions_destroy
+      description: |-
+        특정 대화방 상세 조회 및 삭제 API
+        GET /api/v1/chat/sessions/<int:pk>/
+        DELETE /api/v1/chat/sessions/<int:pk>/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - chat
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/chat/sessions/{session_id}/completion/:
+    post:
+      operationId: chat_sessions_completion_create
+      description: |-
+        사용자 메시지를 받아 LLM 답변을 생성하고 DB에 기록하는 API
+        POST /api/v1/chat/sessions/<session_id>/completion/
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessage'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendMessage'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendMessage'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessage'
+          description: ''
+  /api/v1/chat/sessions/{session_id}/messages/:
+    get:
+      operationId: chat_sessions_messages_list
+      description: |-
+        특정 대화방의 메시지 목록 조회 API
+        GET /api/v1/chat/sessions/<int:session_id>/messages/
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessage'
+          description: ''
+components:
+  schemas:
+    ChatMessage:
+      type: object
+      description: 대화 메시지 직렬화 (조회 및 생성용)
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        session:
+          type: integer
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - content
+      - created_at
+      - id
+      - role
+      - session
+    ChatSession:
+      type: object
+      description: 대화방(세션) 목록 조회 및 생성용 Serializer
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: string
+          format: email
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - updated_at
+      - user
+    ChatSessionDetail:
+      type: object
+      description: 대화방 상세 조회용 Serializer (해당 대화방의 메시지 목록 포함)
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        user:
+          type: string
+          format: email
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - messages
+      - updated_at
+      - user
+    Register:
+      type: object
+      description: 회원가입 전용 Serializer
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        username:
+          type: string
+          title: 사용자 이름
+          description: 150자 이하 문자, 숫자 그리고 @/./+/-/_만 가능합니다.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+      required:
+      - email
+      - id
+      - password
+      - username
+    RoleEnum:
+      enum:
+      - user
+      - assistant
+      - system
+      type: string
+      description: |-
+        * `user` - User
+        * `assistant` - Assistant
+        * `system` - System
+    SendMessage:
+      type: object
+      description: 메시지 전송 요청 전용 Serializer
+      properties:
+        message:
+          type: string
+          description: 유저가 입력한 질문/메시지
+      required:
+      - message
+    TokenObtainPair:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - email
+      - password
+      - refresh
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          writeOnly: true
+      required:
+      - access
+      - refresh
+    User:
+      type: object
+      description: 유저 정보 조회 전용 Serializer
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          title: 사용자 이름
+          description: 150자 이하 문자, 숫자 그리고 @/./+/-/_만 가능합니다.
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+          title: 등록일
+      required:
+      - date_joined
+      - email
+      - id
+      - username
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

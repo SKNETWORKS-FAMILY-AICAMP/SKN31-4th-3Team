@@ -1,0 +1,119 @@
+[
+  {
+    "id": "jesus",
+    "name": "예수 그리스도",
+    "role": "선한 목자",
+    "mbti": "INFJ",
+    "tint": null,
+    "is_center": true,
+    "order": 0
+  },
+  {
+    "id": "peter",
+    "name": "베드로",
+    "role": "반석",
+    "mbti": "ESFP",
+    "tint": "#d9a68a",
+    "is_center": false,
+    "order": 1
+  },
+  {
+    "id": "john",
+    "name": "요한",
+    "role": "사랑받는 제자",
+    "mbti": "INFP",
+    "tint": "#c9b6dd",
+    "is_center": false,
+    "order": 2
+  },
+  {
+    "id": "james",
+    "name": "야고보",
+    "role": "천둥의 아들",
+    "mbti": "ENTJ",
+    "tint": "#d99a9a",
+    "is_center": false,
+    "order": 3
+  },
+  {
+    "id": "andrew",
+    "name": "안드레",
+    "role": "연결자",
+    "mbti": "ISFJ",
+    "tint": "#a8c4c0",
+    "is_center": false,
+    "order": 4
+  },
+  {
+    "id": "philip",
+    "name": "빌립",
+    "role": "확인하는 자",
+    "mbti": "ISTJ",
+    "tint": "#b9c2d8",
+    "is_center": false,
+    "order": 5
+  },
+  {
+    "id": "bartholomew",
+    "name": "바돌로매",
+    "role": "참된 자",
+    "mbti": "ISTJ",
+    "tint": "#cfc7a8",
+    "is_center": false,
+    "order": 6
+  },
+  {
+    "id": "matthew",
+    "name": "마태",
+    "role": "기록하는 자",
+    "mbti": "INTJ",
+    "tint": "#a9bcd4",
+    "is_center": false,
+    "order": 7
+  },
+  {
+    "id": "thomas",
+    "name": "도마",
+    "role": "묻는 자",
+    "mbti": "INTP",
+    "tint": "#b0b8c8",
+    "is_center": false,
+    "order": 8
+  },
+  {
+    "id": "james_alph",
+    "name": "작은 야고보",
+    "role": "조용한 증인",
+    "mbti": "ISFJ",
+    "tint": "#bcc9b4",
+    "is_center": false,
+    "order": 9
+  },
+  {
+    "id": "thaddaeus",
+    "name": "다대오",
+    "role": "질문하는 자",
+    "mbti": "ENFP",
+    "tint": "#d3bfa0",
+    "is_center": false,
+    "order": 10
+  },
+  {
+    "id": "simon",
+    "name": "시몬",
+    "role": "열심당원",
+    "mbti": "ESTP",
+    "tint": "#d8b48c",
+    "is_center": false,
+    "order": 11
+  },
+  {
+    "id": "judas",
+    "name": "가룟 유다",
+    "role": "회계",
+    "mbti": "ENTJ",
+    "tint": "#9aa0ab",
+    "is_center": false,
+    "order": 12
+  }
+]
