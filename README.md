@@ -58,21 +58,77 @@ data/       성경 전문 (31,077절) — 장절 검증, 향후 VectorDB 원본
 
 ## 개발
 
-```bash
-# 백엔드
-cd server
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-python manage.py migrate
-python manage.py seed_scripture     # 은하 13 · 구절 702
-python manage.py runserver
-pytest
+### 백엔드 — macOS / Linux
 
-# 프론트
+```bash
+cd server
+python3 -m venv .venv
+source .venv/bin/activate          # 프롬프트에 (.venv) 가 붙어야 한다
+pip install -r requirements.txt
+cp .env.example .env               # SECRET_KEY, OPENAI_API_KEY 채우기
+python manage.py migrate           # 표 + 은하 13 · 구절 702 까지 한 번에
+python manage.py runserver
+```
+
+### 백엔드 — Windows (PowerShell)
+
+```powershell
+cd server
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1       # 프롬프트에 (.venv) 가 붙어야 한다
+pip install -r requirements.txt
+copy .env.example .env
+python manage.py migrate
+python manage.py runserver
+```
+
+> **`Activate.ps1` 이 "스크립트를 실행할 수 없습니다" 로 막히면**
+> PowerShell 의 실행 정책 때문입니다. 이 창에서만 푸는 명령입니다.
+>
+> ```powershell
+> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+> ```
+>
+> 또는 PowerShell 대신 `cmd` 를 열고 `.venv\Scripts\activate.bat` 를 씁니다.
+
+> **`No module named 'django'` 가 나오면** 가상환경이 활성화되지 않은 것입니다.
+> 프롬프트 앞에 `(.venv)` 가 있는지 먼저 보세요.
+> **터미널을 새로 열 때마다 activate 를 다시 해야 합니다.**
+>
+> 어느 파이썬을 쓰고 있는지 확인하는 방법:
+> ```
+> python -c "import sys; print(sys.executable)"
+> ```
+> 경로에 `.venv` 가 없으면 시스템 파이썬을 쓰고 있는 것입니다.
+
+> **`You don't have permission to access that port`**
+> Windows 에서 Hyper-V·Docker Desktop 이 포트 대역을 예약해 생깁니다.
+> ```powershell
+> netsh int ipv4 show excludedportrange protocol=tcp
+> ```
+> 목록에 8000 이 포함돼 있으면 다른 포트로 띄웁니다.
+> ```
+> python manage.py runserver 8001
+> ```
+> 이때 `frontend/.env.local` 의 `VITE_API_BASE_URL` 도 같은 포트로 바꿔야 합니다.
+
+### 테스트
+
+```bash
+cd server && pytest
+```
+
+### 프론트
+
+```bash
 cd frontend
 npm install
-npm run dev
+npm run dev                        # http://localhost:5173
+
+# .env.local 이 없으면 mock 으로 돕니다 — 백엔드 없이도 화면 전체가 동작합니다.
+# 백엔드에 붙이려면:
+#   echo "VITE_API_BASE_URL=http://localhost:8000" > .env.local
+
 npm run lint && npx tsc --noEmit && npm test && npm run build
 ```
 

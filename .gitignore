@@ -23,4 +23,14 @@ dist/
 .vscode/
 .idea/
 
-./data/bible_structured.json
+# ── AI 보조 도구 설정 — 저장소에 남기지 않는다 ──────────────────
+#
+# 개인 작업 환경 설정이지 프로젝트의 일부가 아니다.
+# 사람마다 쓰는 도구가 다르고, 커밋되면 그 사람의 설정이 팀 전체에
+# 강요된다.
+.claude/
+.claude*
+CLAUDE.md
+.cursor/
+.aider*
+.github/copilot-instructions.md
