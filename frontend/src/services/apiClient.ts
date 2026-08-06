@@ -122,8 +122,19 @@ async function refreshAccess(): Promise<string | null> {
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
-  /** 인증이 필요한 요청인가. 목록·구절 조회는 false 다. */
-  auth?: boolean;
+  /**
+   * 인증을 어떻게 다룰 것인가.
+   *
+   *   false      — 토큰을 붙이지 않는다 (목록·구절 조회)
+   *   true       — 붙인다. 없거나 만료면 실패한다 (대화·내 정보)
+   *   'optional' — 있으면 붙이고, 안 통하면 없는 셈 치고 다시 보낸다
+   *
+   * ★ 'optional' 이 필요한 이유
+   *   질문하기는 로그인 없이도 되는 입구다. 그런데 토큰이 만료된 채로
+   *   남아 있으면 붙였다가 401 이 나고, 로그인도 안 한 사람에게
+   *   "로그인이 필요합니다" 가 뜬다. 입구가 막히는 것이 가장 나쁘다.
+   */
+  auth?: boolean | 'optional';
   signal?: AbortSignal;
   /** 스트리밍 요청은 text/event-stream 을 요청한다. 기본은 JSON. */
   accept?: string;
@@ -147,6 +158,11 @@ async function send(path: string, options: RequestOptions, retry = true): Promis
   if (response.status === 401 && options.auth && retry) {
     const fresh = await refreshAccess();
     if (fresh) return send(path, options, false);
+
+    // 갱신도 실패했다. 선택적 인증이면 익명으로 물러선다.
+    if (options.auth === 'optional') {
+      return send(path, { ...options, auth: false }, false);
+    }
   }
 
   return response;

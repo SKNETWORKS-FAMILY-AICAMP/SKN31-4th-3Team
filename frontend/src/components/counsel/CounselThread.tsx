@@ -11,7 +11,8 @@
 
 import { useEffect, useRef } from 'react';
 import type { CounselMessage } from '../../data/types';
-import { formatRef, getVerseStar } from '../../data/verses';
+import { formatRef } from '../../data/verses';
+import { useVerses } from '../../state/VersesContext';
 import { SafetyNotice } from '../common/SafetyNotice';
 import styles from './CounselThread.module.css';
 
@@ -25,6 +26,7 @@ interface Props {
 const STICK_THRESHOLD = 80;
 
 export function CounselThread({ messages, pending, onSafetyBack }: Props) {
+  const { byId } = useVerses();
   const listRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
 
@@ -62,7 +64,7 @@ export function CounselThread({ messages, pending, onSafetyBack }: Props) {
           );
         }
 
-        const star = message.verseId ? getVerseStar(message.verseId) : undefined;
+        const star = message.verseId ? byId.get(message.verseId) : undefined;
         const isUser = message.role === 'user';
 
         return (

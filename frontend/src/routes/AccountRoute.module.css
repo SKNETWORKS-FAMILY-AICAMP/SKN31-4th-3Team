@@ -1,0 +1,170 @@
+/*
+ * 내 정보.
+ *
+ * ★ 수정과 탈퇴 사이를 멀리 둔다.
+ *   자주 하는 일과 평생 한 번 하는 일이 나란히 있으면 손이 미끄러진다.
+ */
+
+.panel {
+  width: 100%;
+  max-width: var(--width-panel);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  background: var(--bg-scrim);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-lg);
+  padding: clamp(var(--sp-5), 4vw, var(--sp-7));
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.email {
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  /* fieldset 의 기본 테두리·여백을 걷는다 */
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.labelText {
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  color: var(--ink-3);
+  /* legend 는 기본 padding 이 붙는다 */
+  padding: 0;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+.input {
+  width: 100%;
+  padding: var(--sp-3);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-md);
+  background: var(--bg-1);
+  color: var(--ink-0);
+  font-size: var(--fs-body);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--light-silver);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: var(--sp-2);
+}
+
+.chip {
+  padding: var(--sp-2);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-caption);
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.chip:hover { border-color: var(--line-2); }
+
+.chip[aria-pressed='true'] {
+  border-color: var(--light-silver);
+  background: var(--bg-2);
+  color: var(--ink-0);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.saved {
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--alert);
+}
+
+/* ── 탈퇴 ─────────────────────────────────────────────────────── */
+
+.danger {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--line-0);
+}
+
+.dangerTitle {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--ink-1);
+}
+
+.dangerNote {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.7;
+  color: var(--ink-2);
+}
+
+/*
+ * ★ 유일하게 경고색을 쓰는 버튼.
+ *   토큰 주석대로 "지금 이걸 하지 않으면 넘어갈 수 없다" 는 순간에만,
+ *   그것도 잠깐만 쓴다. 확인 단계에 들어와야 나타난다.
+ */
+.leave {
+  padding: var(--sp-2) var(--sp-5);
+  border: 1px solid var(--alert-line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--alert);
+  font-size: var(--fs-caption);
+  letter-spacing: 0.04em;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.leave:hover:not(:disabled) { background: var(--alert-glow); }
+.leave:disabled { opacity: 0.5; }

@@ -112,13 +112,21 @@ export function project(coord: GalaxyCoord, vp: Viewport): Projected {
  */
 const RECT_THRESHOLD = 1.1;
 
-/** 별 하나를 그린다. glow 는 비용이 크므로 티어에 따라 끈다. */
+/**
+ * 별 하나를 그린다. glow 는 비용이 크므로 티어에 따라 끈다.
+ *
+ * @param tint "r, g, b" 형태의 문자열. 없으면 기본 별빛.
+ *   ★ 색을 [r,g,b] 배열로 받지 않는 이유
+ *     프레임마다 별 수만큼 문자열을 이어 붙이게 된다. 호출부에서 한 번
+ *     만들어 넘기면 그 비용이 은하당 1회로 줄어든다.
+ */
 export function drawStar(
   ctx: CanvasRenderingContext2D,
   p: Projected,
   radius: number,
   alpha: number,
   glow: boolean,
+  tint?: string,
 ): void {
   if (!p.visible || alpha <= 0.01) return;
 
@@ -132,7 +140,7 @@ export function drawStar(
     ctx.fill();
   }
 
-  ctx.fillStyle = `rgba(244, 244, 242, ${alpha})`;
+  ctx.fillStyle = `rgba(${tint ?? '244, 244, 242'}, ${alpha})`;
 
   if (radius < RECT_THRESHOLD) {
     const size = radius * 2;

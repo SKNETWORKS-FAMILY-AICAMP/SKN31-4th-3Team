@@ -24,10 +24,37 @@ interface CounselState {
   error: string | null;
   /** 오류의 실제 원인. 서버가 알려 준 문장을 그대로 담는다. */
   errorDetail?: string;
+  /** 어느 은하와 이야기하는가. 대화방을 열 때 정해진다. */
+  personaId?: string;
+  /** 왜 이 인물인지 한 줄. 사용자가 직접 고른 대화에서는 비어 있다. */
+  personaReason?: string;
 }
 
 type CounselAction =
-  | { type: 'thread/started'; threadId: string; opening: CounselMessage; seed: CounselSeed }
+  | {
+      type: 'thread/started';
+      threadId: string;
+      opening: CounselMessage;
+      seed: CounselSeed;
+      personaId?: string;
+      personaReason?: string;
+    }
+  /**
+   * 지난 대화를 그대로 되살린다.
+   *
+   * ★ thread/started 와 나눠 둔다.
+   *   시작은 첫 인사 하나로 방을 여는 일이고, 복원은 이미 오간 말 전부를
+   *   놓는 일이다. 한 액션으로 합치면 "메시지가 하나면 시작, 여럿이면
+   *   복원" 같은 규칙이 생기고, 그런 규칙은 언젠가 어긋난다.
+   */
+  | {
+      type: 'thread/restored';
+      threadId: string;
+      seed: CounselSeed;
+      messages: CounselMessage[];
+      personaId?: string;
+      personaReason?: string;
+    }
   | { type: 'message/sent'; message: CounselMessage }
   | { type: 'message/received'; message: CounselMessage }
   /*
@@ -67,6 +94,18 @@ function reducer(state: CounselState, action: CounselAction): CounselState {
         messages: [action.opening],
         pending: false,
         error: null,
+        personaId: action.personaId,
+        personaReason: action.personaReason,
+      };
+    case 'thread/restored':
+      return {
+        threadId: action.threadId,
+        seed: action.seed,
+        messages: action.messages,
+        pending: false,
+        error: null,
+        personaId: action.personaId,
+        personaReason: action.personaReason,
       };
     case 'message/sent':
       return {

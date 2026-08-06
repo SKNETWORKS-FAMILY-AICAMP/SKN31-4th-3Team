@@ -53,9 +53,10 @@
   color: var(--ink-2);
 }
 
+/* 구절 인용 — 본문 서체를 쓰되 굵기·색으로 구분한다 (typography.css 의 .u-verse 와 같은 규칙) */
 .excerpt {
-  font-family: var(--font-serif);
   font-size: var(--fs-body);
+  font-weight: 300;
   line-height: 1.7;
   color: var(--light-warm);
   word-break: keep-all;

@@ -33,8 +33,12 @@ import { GuideHint } from './components/guide/GuideHint';
 import { useGuideTour } from './state/useGuideTour';
 import { useGalaxy } from './state/GalaxyContext';
 import { useStarJourney } from './state/useStarJourney';
+import { useGalaxyJourney } from './state/useGalaxyJourney';
 import { AppPhaseProvider } from './state/AppPhaseContext';
 import { GalaxyProvider } from './state/GalaxyContext';
+import { EncounterProvider, useEncounter } from './state/EncounterContext';
+import { ThreadsProvider } from './state/ThreadsContext';
+import { VersesProvider } from './state/VersesContext';
 import { CounselProvider } from './state/CounselContext';
 import { IntroChannelProvider } from './state/IntroChannel';
 import { RepositoryProvider, USING_API } from './services/RepositoryProvider';
@@ -68,6 +72,9 @@ const SettingsRoute = lazy(() =>
   import('./routes/SettingsRoute').then((m) => ({ default: m.SettingsRoute })),
 );
 const AuthRoute = lazy(() => import('./routes/AuthRoute').then((m) => ({ default: m.AuthRoute })));
+const AccountRoute = lazy(() =>
+  import('./routes/AccountRoute').then((m) => ({ default: m.AccountRoute })),
+);
 const VerseDetailOverlay = lazy(() =>
   import('./components/verse/VerseDetailOverlay').then((m) => ({ default: m.VerseDetailOverlay })),
 );
@@ -124,6 +131,9 @@ function AppShell() {
 
   // 별을 고르면 카메라가 도착한 뒤에 상세가 열린다 (useStarJourney).
   const arrive = useStarJourney();
+  // 은하도 같다 — 날아가서 도착한 뒤에 목록이 열리거나 상담으로 넘어간다.
+  const arriveGalaxy = useGalaxyJourney();
+  const { release: releaseEncounter } = useEncounter();
 
   const onSky = Boolean(skyMatch || verseMatch);
   const verseId = verseMatch?.params.id;
@@ -148,7 +158,14 @@ function AppShell() {
   useEffect(() => {
     if (onSky) return;
     resetView();
-  }, [onSky, resetView]);
+    /*
+     * ★ 상징도 함께 푼다.
+     *   조우가 끝나도 상징은 그 은하에 서 있는다 — 구절 목록을 훑는
+     *   동안 배경이 다시 나선으로 풀리면 방금 만든 형태가 스쳐 간
+     *   연출이 되기 때문이다. 하늘을 떠날 때가 그것을 놓아 줄 자리다.
+     */
+    releaseEncounter();
+  }, [onSky, resetView, releaseEncounter]);
 
   /*
    * 이용 안내.
@@ -202,6 +219,7 @@ function AppShell() {
         // 별이 아닌 은하를 누르면 열지 않고 그 은하를 화면 중앙으로 데려온다.
         onPickGalaxy={focusGalaxy}
         onArrive={arrive}
+        onArriveGalaxy={arriveGalaxy}
       />
 
       {/*
@@ -242,6 +260,7 @@ function AppShell() {
           />
           <Route path={PATHS.auth} element={<AuthRoute />} />
           <Route path={PATHS.settings} element={<SettingsRoute />} />
+          <Route path={PATHS.account} element={<AccountRoute />} />
           <Route path="*" element={<NotFoundRoute />} />
         </Routes>
 
@@ -266,7 +285,17 @@ export function App() {
     <RepositoryProvider>
       <AppPhaseProvider>
         <AuthProvider>
+          {/*
+            ★ 캔버스보다 위에 둔다.
+              엔진은 생성자에서 별 목록으로 버퍼를 통째로 굽는다. 별이
+              나중에 도착하면 엔진을 다시 만들어야 하고, 그러면 인트로가
+              처음부터 다시 시작한다.
+          */}
+          <ThreadsProvider>
+          <VersesProvider>
           <GalaxyProvider>
+          {/* 조우는 은하 상태(모션 설정)를 읽으므로 GalaxyProvider 안쪽이다 */}
+          <EncounterProvider>
           <IntroChannelProvider>
             <CounselProvider>
               <BrowserRouter>
@@ -274,7 +303,10 @@ export function App() {
               </BrowserRouter>
             </CounselProvider>
           </IntroChannelProvider>
+          </EncounterProvider>
           </GalaxyProvider>
+          </VersesProvider>
+          </ThreadsProvider>
         </AuthProvider>
       </AppPhaseProvider>
     </RepositoryProvider>

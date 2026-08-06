@@ -25,6 +25,7 @@ import type {
   VerseStar,
   VisualMotif,
 } from '../data/types';
+import { galaxyOfVerse } from '../data/disciples';
 import { placeInGalaxy } from '../galaxy/placement';
 import { api, openStream } from './apiClient';
 import { parseSseChunk, readEventStream } from './sse';
@@ -68,7 +69,12 @@ interface AskDto {
   empathy: string;
   reflection: string;
   verse_ids: string[];
+  /** 검색이 고른 구절의 내용. 폴백일 때는 없다. */
+  verses?: { id: string; ref: string; content: string; galaxy_id?: string }[];
   follow_ups: string[];
+  galaxy_id: string;
+  galaxy_name: string;
+  galaxy_reason: string;
 }
 
 interface MessageDto {
@@ -82,6 +88,15 @@ interface MessageDto {
 interface SessionDto {
   id: number;
   title: string;
+  persona_id: string;
+  /** 이 페르소나의 첫 인사. 서버가 만들어 준다. */
+  opening: string;
+  /** 왜 이 인물이 배정됐는지 한 줄. 직접 고른 경우엔 빈 문자열. */
+  persona_reason: string;
+  /** 이 대화를 시작시킨 구절. 없으면 null 로 온다. */
+  seed_verse_id?: string | null;
+  /** 구절 대신 질문에서 시작했다면 그 질문. */
+  seed_question?: string;
   created_at: string;
 }
 
@@ -179,6 +194,8 @@ export const httpVerseRepository: VerseRepository = {
   async ask(question: string, attempt = 0): Promise<AskResult> {
     const dto = await api<AskDto>('/api/v1/scripture/ask/', {
       method: 'POST',
+      // 로그인했으면 MBTI 가 추천에 반영된다. 안 했어도 그대로 답이 온다.
+      auth: 'optional',
       body: { question, attempt },
     });
 
@@ -188,7 +205,22 @@ export const httpVerseRepository: VerseRepository = {
       empathy: dto.empathy,
       reflection: dto.reflection,
       verseIds: dto.verse_ids,
+      /*
+       * ★ 없으면 undefined 로 둔다.
+       *   빈 배열로 두면 화면이 "검색은 됐는데 결과가 0개" 로 읽고
+       *   구절 자리를 비운다. 폴백일 때는 verseIds 로 목록에서 찾아야 한다.
+       */
+      verses: dto.verses?.length
+        ? dto.verses.map((v) => ({
+            id: v.id,
+            ref: v.ref,
+            content: v.content,
+            galaxyId: v.galaxy_id ?? '',
+          }))
+        : undefined,
       followUps: dto.follow_ups,
+      galaxyId: dto.galaxy_id || undefined,
+      galaxyReason: dto.galaxy_reason || undefined,
     };
   },
 };
@@ -201,6 +233,24 @@ export const httpVerseRepository: VerseRepository = {
  * 서버는 제목을 정해 주지 않는다(기본값 "새로운 대화"). 목록에서 어떤
  * 대화였는지 알아볼 수 있어야 하므로 여기서 문맥으로 만든다.
  */
+/**
+ * 어느 은하와 이야기할 것인가.
+ *
+ * ★ 구절에서 이어 왔으면 그 구절이 속한 은하다.
+ *   화면에서 요한의 별을 눌러 들어왔는데 예수가 답하면, 사용자는
+ *   자기가 무엇을 골랐는지 알 수 없게 된다.
+ *
+ * ★ 문맥이 없으면 비워 보낸다.
+ *   서버가 중심 은하로 떨어뜨린다. 화면이 기본값을 정하면 규칙이
+ *   두 곳에 생긴다.
+ */
+function personaFor(seed: CounselSeed): string {
+  // 답변 화면에서 이미 정해졌다면 그것이 이긴다.
+  if (seed.galaxyId) return seed.galaxyId;
+  if (!seed.verseId) return '';
+  return galaxyOfVerse(seed.verseId)?.id ?? '';
+}
+
 function titleFor(seed: CounselSeed): string {
   if (seed.question) return seed.question.slice(0, 40);
   if (seed.verseId) return '구절에서 시작한 대화';
@@ -208,28 +258,74 @@ function titleFor(seed: CounselSeed): string {
 }
 
 /**
- * 서버가 만들어 주지 않는 첫 인사.
+ * 첫 인사.
  *
- * ★ 서버를 기다리지 않는 이유
- *   대화방 생성은 빈 방을 만드는 일이고, 첫 인사를 받으려면 LLM 을 한 번
- *   더 호출해야 한다. 그 시간만큼 사용자는 빈 화면을 본다.
- *   첫 문장은 문맥에서 바로 만들 수 있으므로 화면에서 만든다.
+ * ★ 문구는 서버가 준다.
+ *   인사말은 페르소나 정의(server/llm_core/prompts)에 있다. 화면이 따로
+ *   들고 있으면 인물을 고칠 때 두 곳을 고쳐야 하고, 한쪽만 고치면
+ *   베드로가 요한의 인사를 한다.
  *
- * ★ 이 문장은 서버에 저장되지 않는다
- *   대화를 다시 열면 이 인사는 없고 실제 주고받은 말만 남는다.
- *   맞는 동작이다 — 인사는 기록이 아니라 문을 여는 몸짓이다.
+ * ★ LLM 을 부르지 않는다.
+ *   미리 정해 둔 문장이라 대화방을 여는 즉시 나온다.
+ *
+ * ★ 이 문장은 DB 에 저장되지 않는다.
+ *   대화를 다시 열면 실제로 주고받은 말만 남는다. 맞는 동작이다 —
+ *   인사는 기록이 아니라 문을 여는 몸짓이다.
  */
-function openingFor(seed: CounselSeed): CounselMessage {
-  const text = seed.verseId
-    ? '이 구절을 곁에 두고 이어서 이야기해 볼까요.\n마음에 걸리는 것부터 편히 적어 주세요.'
-    : '무엇이든 편히 적어 주세요.\n같이 천천히 짚어 보겠습니다.';
-
+function openingFor(seed: CounselSeed, text: string): CounselMessage {
   return {
     id: `opening-${Date.now()}`,
     role: 'guide',
-    text,
+    text: text || '무엇이든 편히 적어 주세요.',
     verseId: seed.verseId,
     createdAt: Date.now(),
+  };
+}
+
+/** 되살린 대화방. CounselContext 의 thread/restored 가 그대로 받는다. */
+export interface RestoredThread {
+  threadId: string;
+  seed: CounselSeed;
+  messages: CounselMessage[];
+  personaId?: string;
+  personaReason?: string;
+}
+
+/**
+ * 지난 대화를 서버에서 가져온다.
+ *
+ * ★ 첫 인사를 앞에 다시 붙인다.
+ *   서버는 인사를 저장하지 않는다 — 인사는 기록이 아니라 문을 여는
+ *   몸짓이기 때문이다(openingFor 주석). 그래서 되살릴 때 화면이 다시
+ *   얹는다. 없으면 대화가 사용자의 첫마디부터 시작해, 누구와 이야기하던
+ *   중이었는지가 사라진다.
+ *
+ * ★ 저장소 인터페이스에 넣지 않았다.
+ *   mock 에는 대응물이 없다 — 서버가 없을 때는 브라우저에 남긴 것을
+ *   그대로 읽으면 되고, 그건 저장소를 거칠 일이 아니다. 억지로 계약에
+ *   넣으면 mock 쪽에 "쓰이지 않는 구현" 이 하나 생긴다.
+ */
+export async function fetchThread(threadId: string): Promise<RestoredThread> {
+  const dto = await api<SessionDto & { messages?: MessageDto[] }>(
+    `/api/v1/chat/sessions/${encodeURIComponent(threadId)}/`,
+    { auth: true },
+  );
+
+  const seed: CounselSeed = {
+    verseId: dto.seed_verse_id ?? undefined,
+    question: dto.seed_question || undefined,
+    galaxyId: dto.persona_id || undefined,
+  };
+
+  const opening = openingFor(seed, dto.opening);
+  const messages = (dto.messages ?? []).map(toMessage);
+
+  return {
+    threadId: String(dto.id),
+    seed,
+    messages: [opening, ...messages],
+    personaId: dto.persona_id || undefined,
+    personaReason: dto.persona_reason || undefined,
   };
 }
 
@@ -242,10 +338,15 @@ export const httpCounselRepository: CounselRepository = {
     const dto = await api<SessionDto>('/api/v1/chat/sessions/', {
       method: 'POST',
       auth: true,
-      body: { title: titleFor(seed) },
+      body: { title: titleFor(seed), persona_id: personaFor(seed) },
     });
 
-    return { threadId: String(dto.id), opening: openingFor(seed) };
+    return {
+      threadId: String(dto.id),
+      opening: openingFor(seed, dto.opening),
+      personaId: dto.persona_id || undefined,
+      reason: dto.persona_reason || undefined,
+    };
   },
 
   async send(threadId: string, text: string) {

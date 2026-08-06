@@ -94,6 +94,51 @@ describe('★ StrictMode — 대화가 실제로 열리는가', () => {
     await waitFor(() => expect(log.textContent).toContain(formatRef(star)));
   });
 
+  describe('누구와 이야기하는가', () => {
+    /** 서버가 골라 준 상황을 흉내 낸다 — mock 은 추천을 하지 않는다. */
+    const withPersona = (personaId: string, reason?: string) => ({
+      ...mockRepositories,
+      counsel: {
+        ...mockRepositories.counsel,
+        startThread: async (seed: Parameters<typeof mockRepositories.counsel.startThread>[0]) => ({
+          ...(await mockRepositories.counsel.startThread(seed)),
+          personaId,
+          reason,
+        }),
+      },
+    });
+
+    it('인물 이름을 보여 준다', async () => {
+      renderCounselStrict('', withPersona('peter'));
+      expect(await screen.findByText('베드로의 은하')).toBeInTheDocument();
+    });
+
+    it('서버가 골랐으면 왜 이 인물인지도 보여 준다', async () => {
+      const reason = '두려움에 닿는 구절이 가장 많은 곳입니다.';
+      renderCounselStrict('', withPersona('peter', reason));
+      expect(await screen.findByText(reason)).toBeInTheDocument();
+    });
+
+    it('★ 직접 고른 대화에는 이유를 붙이지 않는다', async () => {
+      // 자기가 누른 은하에 "왜 이 사람인지"를 설명하는 것은 군더더기다.
+      renderCounselStrict('', withPersona('peter'));
+      await screen.findByText('베드로의 은하');
+      expect(screen.queryByText(/곳입니다\.$/)).not.toBeInTheDocument();
+    });
+
+    it('인물을 모르면 아무것도 세우지 않는다', async () => {
+      renderCounselStrict('');
+      await screen.findByRole('log', { name: '상담 대화' });
+      expect(screen.queryByText(/의 은하$/)).not.toBeInTheDocument();
+    });
+
+    it('구절에서 이어 오면 그 구절의 은하가 나온다', async () => {
+      renderCounselStrict('?from=gen-1-3');
+      await screen.findByRole('log', { name: '상담 대화' });
+      await waitFor(() => expect(screen.getByText(/의 은하$/)).toBeInTheDocument());
+    });
+  });
+
   it('★ 대화방 생성 요청은 한 번만 나간다', async () => {
     // effect 가 두 번 돌았다고 서버에 빈 방이 두 개 생기면 안 된다.
     const startThread = vi.fn(mockRepositories.counsel.startThread);

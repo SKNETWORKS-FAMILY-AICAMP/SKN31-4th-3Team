@@ -22,7 +22,7 @@ import { useCallback, useEffect, useRef, type KeyboardEvent } from 'react';
 import type { VerseStar } from '../../data/types';
 import { formatRef } from '../../data/verses';
 import { THEME_LABELS } from '../../data/intents';
-import { galaxyLabel, galaxyOfVerse, galaxySwatch } from '../../data/disciples';
+import { galaxyLabel, galaxyOfStar, galaxySwatch } from '../../data/disciples';
 import styles from './StarKeyboardLayer.module.css';
 
 interface Props {
@@ -100,7 +100,7 @@ export function StarKeyboardLayer({ stars, activeId, onActivate, onHover, column
     >
       {stars.map((star, index) => {
         const selected = star.id === activeId;
-        const galaxy = galaxyOfVerse(star.id);
+        const galaxy = galaxyOfStar(star);
         return (
           <li key={star.id} role="none">
             <button

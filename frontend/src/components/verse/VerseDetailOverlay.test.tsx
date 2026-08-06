@@ -51,7 +51,8 @@ describe('VerseDetailOverlay — 콘텐츠', () => {
   it('모티프 추상 연출이 스크린리더에 설명된다', async () => {
     renderOverlay('gen-1-3');
     // gen-1-3 의 모티프는 '빛'
-    expect(await screen.findByLabelText(/빛을\(를\) 형상화한 추상 연출/)).toBeInTheDocument();
+    // 조사는 받침을 따른다 — "빛을", "물결을", "길을" (data/korean.ts)
+    expect(await screen.findByLabelText('빛을 형상화한 추상 연출')).toBeInTheDocument();
   });
 
   it('존재하지 않는 별이면 안내를 보여준다', async () => {

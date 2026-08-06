@@ -64,13 +64,20 @@ export function AccountButton() {
       {user ? (
         <div className={styles.signedIn}>
           {/*
-            이름은 버튼이 아니다 — 눌러도 갈 곳이 없는 글자를 버튼처럼
-            보이게 두면 사람은 한 번 눌러 보고 고장이라고 생각한다.
+            ★ 이름이 곧 내 정보로 가는 입구다.
+              예전에는 글자였다 — "눌러도 갈 곳이 없으니 버튼처럼 보이면
+              안 된다" 는 이유였다. 이제 갈 곳이 생겼으므로 버튼이 맞다.
+              사람들은 어차피 자기 이름을 눌러 본다.
           */}
-          <span className={styles.name}>
+          <button
+            type="button"
+            className={styles.name}
+            aria-label={`${user.username}님 내 정보`}
+            onClick={() => navigate(PATHS.account)}
+          >
             {user.username}
             {user.mbti && <span className={styles.badge}>{user.mbti}</span>}
-          </span>
+          </button>
 
           {confirming ? (
             <span className={styles.confirm}>

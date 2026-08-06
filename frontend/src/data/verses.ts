@@ -374,7 +374,7 @@ const SEEDS: FullSeed[] = [
   {
     id: '1jn-1-9',
     depth: 'full',
-    ref: { bookCode: '요일', bookName: '요한1서', chapter: 1, verse: 9 },
+    ref: { bookCode: '요일', bookName: '요한일서', chapter: 1, verse: 9 },
     excerpt: '만일 우리가 우리 죄를 자백하면',
     attribution: KRV,
     summary: '숨기는 대신 말하는 쪽을 길로 제시합니다.',

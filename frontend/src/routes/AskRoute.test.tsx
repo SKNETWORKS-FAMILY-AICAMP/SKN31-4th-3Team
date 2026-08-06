@@ -9,7 +9,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AskRoute } from './AskRoute';
 import { RepositoryProvider } from '../services/RepositoryProvider';
 import { AppPhaseProvider } from '../state/AppPhaseContext';
@@ -17,7 +17,23 @@ import { GalaxyProvider } from '../state/GalaxyContext';
 import { mockRepositories } from '../services/mockRepositories';
 import type { Repositories } from '../services/repositories';
 import { THEME_LABELS } from '../data/intents';
+import { getGalaxy } from '../data/disciples';
 import type { ThemeTag } from '../data/types';
+
+/**
+ * 도착지에서 주소를 읽어 내는 표지판.
+ *
+ * MemoryRouter 는 window.location 을 건드리지 않는다. 그래서 "어디로
+ * 갔는가"는 도착한 화면 쪽에서 확인해야 한다.
+ */
+function Arrived({ where }: { where: string }) {
+  const { search } = useLocation();
+  return (
+    <p data-testid="arrived">
+      {where}:{search}
+    </p>
+  );
+}
 
 function renderAsk(question: string, repositories: Repositories = mockRepositories) {
   return render(
@@ -28,6 +44,8 @@ function renderAsk(question: string, repositories: Repositories = mockRepositori
             <Routes>
               <Route path="/ask" element={<AskRoute />} />
               <Route path="/home" element={<p>홈 화면</p>} />
+              <Route path="/counsel" element={<Arrived where="상담" />} />
+              <Route path="/sky" element={<Arrived where="하늘" />} />
             </Routes>
           </MemoryRouter>
         </GalaxyProvider>
@@ -101,7 +119,7 @@ describe('AskRoute — 의도별 응답', () => {
       timeout: 3000,
     });
 
-    expect(screen.getByRole('button', { name: '상담 이어가기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /상담 이어가기$/ })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: '별자리에서 보기' }).length).toBeGreaterThan(0);
   });
 });
@@ -171,5 +189,72 @@ describe('AskRoute — 실패와 재요청', () => {
 
     await user.click(screen.getByRole('button', { name: '다른 구절 보기' }));
     await waitFor(() => expect(ask).toHaveBeenCalledWith('불안해요', 1));
+  });
+});
+
+describe('은하 안내 — "어디로 가야 하는가"', () => {
+  /*
+   * ★ 이 절이 있는 이유
+   *   추천 시스템을 서버에 다 만들어 두고도 답변 화면에 아무것도
+   *   내보내지 않아서, 사용자에게는 예전과 똑같이 "구절만 주는" 화면으로
+   *   보였던 적이 있다. 계산이 도는 것과 화면에 나오는 것은 다른 문제다.
+   */
+
+  const QUESTION = '사람들 속에서도 외로워요';
+
+  it('추천된 은하를 이름으로 보여 준다', async () => {
+    renderAsk(QUESTION);
+    // <aside> 는 complementary 랜드마크다 (section 의 region 이 아니다)
+    expect(await screen.findByRole('complementary', { name: '추천 은하' })).toBeInTheDocument();
+    expect(screen.getByText(/의 은하$/)).toBeInTheDocument();
+  });
+
+  it('조사가 어긋나지 않는다', async () => {
+    renderAsk(QUESTION);
+    const cta = await screen.findByRole('button', { name: /상담 이어가기$/ });
+    // 받침 있는 이름(요한·빌립·시몬) 뒤에 "와" 가 오면 안 된다
+    expect(cta.textContent).not.toMatch(/[한립몬]와 /);
+  });
+
+  /** 도착한 화면의 주소를 "어디:쿼리" 형태로 읽는다. */
+  async function landed(): Promise<{ where: string; params: URLSearchParams }> {
+    const text = (await screen.findByTestId('arrived')).textContent ?? '';
+    const [where, search] = [text.slice(0, text.indexOf(':')), text.slice(text.indexOf(':') + 1)];
+    return { where, params: new URLSearchParams(search) };
+  }
+
+  it('은하 찾아가기 — 바로 열지 않고 그 은하까지 날아간다', async () => {
+    const user = userEvent.setup();
+    renderAsk(QUESTION);
+
+    const shown = (await screen.findByText(/의 은하$/)).textContent ?? '';
+    await user.click(screen.getByRole('button', { name: '은하 찾아가기' }));
+
+    const { where, params } = await landed();
+    expect(where).toBe('하늘');
+    expect(params.get('travel')).toBe('1'); // 비행을 거친다
+    expect(shown).toContain(getGalaxy(params.get('galaxy')!)!.name);
+  });
+
+  it('★ 상담 이어가기 — 그 은하를 거쳐서, 인물을 들고 간다', async () => {
+    /*
+     * 화면에 "요한의 은하"라고 써 놓고 대화에서 마태가 나오면 안 된다.
+     * 그리고 대화창이 갑자기 뜨는 대신 그 사람이 있는 자리까지 간다.
+     */
+    const user = userEvent.setup();
+    renderAsk(QUESTION);
+
+    const shown = (await screen.findByText(/의 은하$/)).textContent ?? '';
+    await user.click(screen.getByRole('button', { name: /상담 이어가기$/ }));
+
+    const { where, params } = await landed();
+    expect(where).toBe('하늘');
+    expect(params.get('travel')).toBe('1');
+
+    // 도착하면 이어서 갈 곳이 상담이고, 거기에도 같은 인물이 실려 있다
+    const then = new URLSearchParams((params.get('then') ?? '').split('?')[1]);
+    expect(params.get('then')).toMatch(/^\/counsel\?/);
+    expect(then.get('galaxy')).toBe(params.get('galaxy'));
+    expect(shown).toContain(getGalaxy(then.get('galaxy')!)!.name);
   });
 });

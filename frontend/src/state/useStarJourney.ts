@@ -15,13 +15,20 @@
  * 안전망이 필요한 이유: Canvas 를 못 쓰는 환경이나 탭이 백그라운드로
  * 내려가 렌더 루프가 멈춘 경우에는 도착 통지가 영영 오지 않는다.
  * 그때도 상세는 열려야 한다.
+ *
+ * ★ 도착과 열림 사이에 조우가 들어온다
+ *   도착하면 그 별이 속한 은하의 별들이 상징으로 모이고, 한 줄이 지나간
+ *   다음에 구절이 열린다. 여기서는 "언제 열지"만 조우에 맡기고, 무엇을
+ *   열지는 그대로 둔다.
  */
 
 import { useCallback, useEffect } from 'react';
 import { useMatch, useNavigate } from 'react-router-dom';
 import { FLIGHT_DURATION, FLIGHT_DURATION_REDUCED } from '../galaxy/Camera';
 import { PATHS, versePath } from '../routes/paths';
+import { useEncounter } from './EncounterContext';
 import { useGalaxy } from './GalaxyContext';
+import { useVerses } from './VersesContext';
 
 /** 도착 통지가 늦을 때를 대비한 여유 시간(ms). */
 const ARRIVAL_GRACE_MS = 140;
@@ -34,6 +41,8 @@ export function useStarJourney(): (starId: string) => void {
   const navigate = useNavigate();
   const onSky = useMatch(PATHS.sky);
   const { travelingToId, endTravel, reducedMotion } = useGalaxy();
+  const { byId } = useVerses();
+  const { begin } = useEncounter();
 
   const arrive = useCallback(
     (starId: string) => {
@@ -48,9 +57,17 @@ export function useStarJourney(): (starId: string) => void {
        */
       if (!onSky) return;
 
-      navigate(versePath(starId));
+      /*
+       * 그 별이 속한 은하의 주인을 만난 다음에 구절이 열린다.
+       * 은하를 모르면(정적 표에 없는 별) 조우 없이 바로 연다 —
+       * begin 이 그 판단을 대신해 준다.
+       */
+      const galaxyId = byId.get(starId)?.discipleId;
+      const open = () => navigate(versePath(starId));
+      if (galaxyId) begin(galaxyId, open, '구절 열기');
+      else open();
     },
-    [travelingToId, endTravel, navigate, onSky],
+    [travelingToId, endTravel, navigate, onSky, byId, begin],
   );
 
   useEffect(() => {

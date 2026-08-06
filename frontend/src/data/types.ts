@@ -136,6 +136,22 @@ export interface BackdropStar {
 }
 
 /** 질문 1건에 대한 mock 응답. */
+/**
+ * 검색이 고른 구절 하나. 화면 목록에 없어도 카드를 그릴 수 있을 만큼만 담는다.
+ *
+ * VerseStar 를 그대로 쓰지 않는 이유는, 성경전서 구절에는 좌표·모티프·묵상이
+ * 없기 때문이다. 없는 것을 빈 값으로 채워 보내면 화면이 "데이터가 빠졌다" 로
+ * 읽는다.
+ */
+export interface AskVerse {
+  id: string;
+  /** "요한복음 3:16" 처럼 사람이 읽는 출처 */
+  ref: string;
+  content: string;
+  /** 어느 은하에 속하는가. 비어 있을 수 있다. */
+  galaxyId: string;
+}
+
 export interface AskResult {
   /** 원 질문 — 새로고침/공유 시 복원에 쓰인다. */
   question: string;
@@ -146,8 +162,31 @@ export interface AskResult {
   reflection: string;
   /** 추천 구절 2~3개의 VerseStar.id */
   verseIds: string[];
+  /**
+   * 검색이 고른 구절의 내용.
+   *
+   * ★ 왜 id 만으로 부족한가
+   *   화면의 별 목록에는 은하당 150절만 올라간다. 서버의 벡터 검색은
+   *   31,077절 전체에서 고르므로, 목록에 없는 구절이 오면 카드가 빈 채로
+   *   뜬다. 내용을 함께 받으면 그 제약이 사라진다.
+   *
+   * ★ 없을 수 있다
+   *   서버가 예전 방식(주제 표)으로 물러섰거나 mock 으로 도는 경우다.
+   *   그때는 verseIds 가 큐레이션 702절을 가리키므로 목록에서 찾으면 된다.
+   */
+  verses?: AskVerse[];
   /** 이어서 던져볼 만한 질문. */
   followUps: string[];
+  /**
+   * 이 고민을 들어 줄 인물의 은하.
+   *
+   * ★ 구절만으로는 갈 곳이 없다.
+   *   추천 구절 셋을 받아도 사용자는 520개 별 앞에 그대로 남는다.
+   *   "어느 은하로 가면 되는지"가 있어야 화면이 이어진다.
+   */
+  galaxyId?: string;
+  /** 왜 그 은하인지 한 줄. */
+  galaxyReason?: string;
 }
 
 export type CounselRole = 'user' | 'guide';
@@ -176,6 +215,15 @@ export interface CounselThread {
 export interface CounselSeed {
   verseId?: string;
   question?: string;
+  /**
+   * 답변 화면에서 이미 정해진 인물.
+   *
+   * ★ 여기 없으면 서버가 다시 고른다.
+   *   그 자체는 문제가 없지만, 답변 화면에 "요한의 은하"라고 써 두고
+   *   대화에서 마태가 나오면 사용자는 무엇을 믿어야 할지 모르게 된다.
+   *   한 번 정해진 사람은 화면을 넘어가도 같은 사람이어야 한다.
+   */
+  galaxyId?: string;
 }
 
 /** 렌더링 품질 티어. quality.ts 가 자동 결정하고 사용자가 고정할 수도 있다. */

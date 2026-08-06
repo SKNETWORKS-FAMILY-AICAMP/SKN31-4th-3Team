@@ -10,7 +10,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { pickOpenings, pickSuggestedPrompts } from '../data/openings';
-import { FULL_VERSE_STARS, VERSE_STARS } from '../data/verses';
+import { FULL_VERSE_STARS } from '../data/verses';
+import { useVerses } from '../state/VersesContext';
 import { BOOK_COUNT, REPRESENTED_VERSE_COUNT } from '../data/backdrop';
 import { OpeningPrompt } from '../components/home/OpeningPrompt';
 import { QuestionComposer } from '../components/home/QuestionComposer';
@@ -26,6 +27,7 @@ const CHIP_COUNT = 3;
 export function HomeRoute() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { stars } = useVerses();
 
   // 방문마다 달라지는 것이 의도다 — 마운트 시 한 번만 뽑는다.
   const openings = useMemo(() => pickOpenings(), []);
@@ -64,7 +66,7 @@ export function HomeRoute() {
         <PromptChips prompts={chips} onPick={ask} />
 
         <Button variant="quiet" data-guide="sky" onClick={() => navigate(PATHS.sky)}>
-          별자리 먼저 둘러보기 ({VERSE_STARS.length}개 구절)
+          별자리 먼저 둘러보기 ({stars.length}개 구절)
         </Button>
       </div>
     </main>

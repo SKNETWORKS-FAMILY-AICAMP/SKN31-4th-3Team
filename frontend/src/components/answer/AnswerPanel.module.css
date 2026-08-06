@@ -1,7 +1,52 @@
+/*
+ * components/answer/AnswerPanel.module.css
+ * ───────────────────────────────────────────────────────────────────────
+ * 답변 화면 레이아웃.
+ *
+ * 두 층으로 나눈다:
+ *
+ *   위층   [ 공감·묵상          |  이 은하로 가세요 ]
+ *   아래층 [ 함께 볼 구절 — 카드 셋을 나란히        ]
+ *
+ * ★ 왜 세로 한 줄이 아닌가
+ *   공감 → 묵상 → 구절 → 은하 → 버튼을 차례로 쌓으면 화면이 길어져서,
+ *   답을 끝까지 읽기 전에는 다음에 무엇을 할 수 있는지 알 수 없다.
+ *   읽는 것과 가는 곳을 나란히 두면 한 화면에 둘 다 들어온다.
+ *
+ * ★ 두 층 사이에만 선을 긋는다
+ *   구분선을 여러 개 그으면 화면이 표가 된다. "말"과 "구절"이 다르다는
+ *   것만 표시하면 충분하다.
+ */
+
+/*
+ * ★ 왜 grid-template-areas 인가
+ *   좁은 화면에서 은하 안내를 구절 "뒤로" 보내야 하는데, flex 의 order
+ *   로는 같은 부모 안에서만 순서를 바꿀 수 있다. 위층을 따로 감싸면
+ *   그 안에서만 움직이고 구절 아래로는 못 간다. 네 덩어리를 한 격자에
+ *   두고 자리 이름으로 배치하면 화면 크기별로 자유롭게 옮길 수 있다.
+ */
 .panel {
+  display: grid;
+  /*
+   * 왼쪽이 넉넉해야 글줄이 끊기지 않는다. 오른쪽은 이름 한 줄과
+   * 버튼 두 개가 들어갈 최소 폭이면 된다.
+   */
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 0.9fr);
+  grid-template-areas:
+    'lede   guide'
+    'verses verses'
+    'follow follow';
+  row-gap: var(--sp-6);
+  column-gap: clamp(var(--sp-5), 4vw, var(--sp-8));
+  align-items: start;
+}
+
+.lede {
+  grid-area: lede;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-5);
+  gap: var(--sp-3);
+  min-width: 0;
 }
 
 /* 공감 문장이 가장 먼저 눈에 들어와야 한다 */
@@ -21,11 +66,100 @@
   word-break: keep-all;
 }
 
-.verses {
+/* ── 은하 안내 ─────────────────────────────────────────────────── */
+
+/*
+ * ★ 구절 카드와 같은 무게로 만들지 않는다.
+ *   테두리를 두르면 넷째 카드처럼 보이고, 그러면 "또 하나의 선택지"가
+ *   된다. 이건 선택지가 아니라 안내다.
+ *
+ * ★ 색은 그 은하의 색을 쓴다.
+ *   위쪽에서 아주 옅게 번지게 두면, 하늘에서 그 은하를 찾아갔을 때
+ *   같은 색을 다시 만나게 된다. 문장으로 설명하는 것보다 빠르다.
+ */
+.guide {
+  grid-area: guide;
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
-  padding-top: var(--sp-4);
+  gap: var(--sp-2);
+  padding: var(--sp-5) var(--sp-5) var(--sp-5) var(--sp-6);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(
+      120% 90% at 0% 0%,
+      color-mix(in srgb, var(--galaxy-tint, transparent) 9%, transparent),
+      transparent 70%
+    ),
+    var(--bg-1);
+}
+
+/* 왼쪽 색 선 — 세로로 옅어지며 사라진다. 상자처럼 보이지 않게 */
+.guide::before {
+  content: '';
+  position: absolute;
+  inset-block: var(--sp-4);
+  inset-inline-start: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--galaxy-tint, var(--line-1)) 70%, transparent),
+    transparent
+  );
+}
+
+/*
+ * ★ 여기도 세리프를 걷었다.
+ *   답변 화면 한 곳에 세리프가 둘(구절·은하 이름) 있었고, 나머지는
+ *   전부 Pretendard 였다. 서체가 셋이 섞이면 정돈된 인상이 먼저 깨진다.
+ *   이름은 크기와 자간으로 세운다.
+ */
+.galaxyName {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-body-lg);
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  color: var(--ink-0);
+  word-break: keep-all;
+}
+
+.galaxyDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--galaxy-tint, var(--light-silver));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--galaxy-tint, var(--light-silver)) 70%, transparent);
+  flex-shrink: 0;
+}
+
+.galaxyReason {
+  font-size: var(--fs-caption);
+  line-height: 1.7;
+  color: var(--ink-2);
+  word-break: keep-all;
+}
+
+/* 버튼은 세로로 쌓아 폭을 맞춘다 — 오른쪽 단이 좁아 옆으로 두면 접힌다 */
+.cta {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+/* ── 아래층: 구절 ──────────────────────────────────────────────── */
+
+.verses {
+  grid-area: verses;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding-top: var(--sp-5);
   border-top: 1px solid var(--line-0);
 }
 
@@ -36,22 +170,37 @@
   gap: var(--sp-3);
 }
 
+/*
+ * 카드를 나란히.
+ *
+ * ★ auto-fit 이라 개수가 달라져도 규칙을 고치지 않는다.
+ *   구절이 둘이면 둘이 폭을 나눠 갖고, 화면이 좁으면 알아서 접힌다.
+ *   "3열" 이라고 못 박으면 카드가 둘일 때 오른쪽이 비어 어색해진다.
+ */
 .cards {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-4);
+  align-items: stretch;
 }
 
-.cta {
+/* 카드 높이를 맞춘다 — 들쭉날쭉하면 나란히 둔 의미가 없다 */
+.cardItem {
   display: flex;
-  gap: var(--sp-2);
 }
+
+.cardItem > * {
+  flex: 1;
+}
+
+/* ── 이어서 물어보기 ───────────────────────────────────────────── */
 
 .followUps {
+  grid-area: follow;
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
-  padding-top: var(--sp-4);
+  padding-top: var(--sp-5);
   border-top: 1px solid var(--line-0);
 }
 
@@ -76,7 +225,74 @@
 
 .followChip:hover { color: var(--ink-0); border-color: var(--line-2); }
 
+/* ── 좁은 화면 ─────────────────────────────────────────────────── */
+
+/*
+ * 한 단으로 접힌다.
+ *
+ * ★ 이때는 은하 안내를 구절 뒤로 보낸다.
+ *   나란히 있을 때는 둘이 동시에 보이지만, 세로로 쌓이면 순서가 곧
+ *   차례가 된다. 위로하기 전에 "당신은 이 사람에게 가세요"가 먼저
+ *   오면 배정받는 화면이 된다.
+ */
+@media (max-width: 1023px) {
+  .panel {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'lede'
+      'verses'
+      'guide'
+      'follow';
+    row-gap: var(--sp-5);
+  }
+}
+
 @media (max-width: 640px) {
+  .panel { gap: var(--sp-5); }
   .versesHead { flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
-  .cta > * { flex: 1; }
+  .guide { padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-5); }
+}
+
+/*
+ * 검색이 찾은 구절.
+ *
+ * ★ 큐레이션 카드(VerseCard)와 같은 조판을 쓴다.
+ *   둘이 한 목록에 섞이지는 않지만, 질문을 바꾸면 번갈아 나타난다.
+ *   그때 카드 모양이 달라지면 화면이 흔들린 것으로 보인다.
+ *   담는 내용만 적을 뿐, 틀은 같아야 한다.
+ *
+ * ★ 왼쪽 세로선은 "여기부터 구절" 이라는 표시다.
+ *   따옴표 그래픽 같은 장식은 쓰지 않는다 (VerseCard 와 같은 규칙).
+ */
+.found {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-md);
+  background: var(--bg-1);
+  transition: border-color var(--dur-base) var(--ease-out);
+}
+
+.found:hover { border-color: var(--line-1); }
+
+.foundQuote {
+  border-left: 2px solid var(--light-warm);
+  padding-left: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.foundRef {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  font-style: normal;
+}
+
+@media (max-width: 640px) {
+  .found { padding: var(--sp-4); }
 }

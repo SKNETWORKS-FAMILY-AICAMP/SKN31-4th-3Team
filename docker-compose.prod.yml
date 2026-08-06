@@ -1,0 +1,69 @@
+# docker-compose.prod.yml
+# ─────────────────────────────────────────────────────────────────────
+# EC2(g4dn.xlarge) 배포용.
+#
+#   프론트 ─ nginx(컨테이너) ─┬─ 정적 파일
+#                             └─ /api → Django(gunicorn)
+#                                          │
+#                                          ├─ RDS PostgreSQL (pgvector)
+#                                          └─ Ollama (호스트, GPU)
+#
+# ★ 로컬용(docker-compose.yml)과 나눠 둔 이유
+#   로컬은 DB 를 컨테이너로 띄우고, 배포는 RDS 를 쓴다. 한 파일에
+#   프로필로 섞으면 "어느 쪽이 지금 도는지" 를 매번 확인해야 하고,
+#   그 확인을 한 번 빼먹으면 배포에서 로컬 DB 가 뜬다 — 데이터가 빈
+#   화면이 되고 원인은 안 보인다.
+#
+# ★ Ollama 는 컨테이너에 넣지 않는다
+#   호스트에 설치한 것을 그대로 쓴다. GPU 를 컨테이너로 넘기려면
+#   nvidia-container-toolkit 설정이 하나 더 붙는데, 그 한 겹이
+#   발표 전날 밤에 깨질 수 있는 곳이 하나 더 생긴다는 뜻이다.
+#   호스트 Ollama 는 이미 검증하고 올라온 상태다.
+#
+# 사용:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+
+services:
+  api:
+    build: ./server
+    restart: unless-stopped
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: "False"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
+      DATABASE_URL: ${DATABASE_URL}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+      # ★ 컨테이너에서 호스트의 Ollama 로 나가는 주소.
+      #   extra_hosts 로 host.docker.internal 을 뚫어 둔다 (아래 참조).
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+
+      # Neo4j Aura. 값이 없으면 그래프 가중치가 꺼진 채로 돈다.
+      NEO4J_URI: ${NEO4J_URI:-}
+      NEO4J_USER: ${NEO4J_USER:-}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
+
+      # g4dn.xlarge 는 4 vCPU. (2 × vCPU) + 1 = 9 는 과하고, 임베딩 대기가
+      # 대부분이라 I/O 대기 위주다. 5 로 둔다.
+      GUNICORN_WORKERS: "5"
+    extra_hosts:
+      # ★ 리눅스에는 host.docker.internal 이 기본으로 없다.
+      #   이 한 줄이 없으면 컨테이너가 호스트의 Ollama 를 못 찾고,
+      #   검색이 오류 없이 폴백으로 떨어진다 — 가장 알아채기 어려운 실패다.
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8000"
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        # 같은 도메인의 /api 로 보낸다 — 브라우저 입장에서 CORS 가 없다.
+        VITE_API_BASE_URL: ""
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"

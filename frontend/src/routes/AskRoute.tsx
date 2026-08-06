@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { AskResult, FullVerseStar } from '../data/types';
 import { isFullVerse } from '../data/types';
-import { getVerseStar } from '../data/verses';
+import { useVerses } from '../state/VersesContext';
 import { isCrisis } from '../services/intentMatcher';
 import { useRepositories } from '../services/RepositoryProvider';
 import { useAppPhase } from '../state/AppPhaseContext';
@@ -23,13 +23,14 @@ import { AnswerSkeleton } from '../components/answer/AnswerSkeleton';
 import { SafetyNotice } from '../components/common/SafetyNotice';
 import { ErrorState } from '../components/common/ErrorState';
 import { Button } from '../components/common/Button';
-import { askPath, counselPath, PATHS, skyPath, versePath } from './paths';
+import { askPath, counselPath, galaxyPath, PATHS, skyPath, versePath } from './paths';
 import screen from './Screen.module.css';
 import styles from './AskRoute.module.css';
 
 export function AskRoute() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const { byId } = useVerses();
   const { verses } = useRepositories();
   const { setPhase } = useAppPhase();
 
@@ -101,7 +102,7 @@ export function AskRoute() {
    * 연관 구절이 섞여 들어오면 인용 없는 빈 카드가 되므로 여기서 걸러 낸다.
    */
   const stars = (result?.verseIds ?? [])
-    .map(getVerseStar)
+    .map((id) => byId.get(id))
     .filter((s): s is FullVerseStar => Boolean(s) && isFullVerse(s!));
 
   /*
@@ -113,6 +114,39 @@ export function AskRoute() {
   const visitStar = (star: FullVerseStar) => {
     setPhase('traveling');
     navigate(skyPath(star.id, { travel: true }));
+  };
+
+  /**
+   * 추천된 은하로 날아간 다음 목록을 연다.
+   *
+   * 구절을 고를 때와 같은 몸짓이다 — 바로 열지 않고 그 자리까지 간다.
+   */
+  const visitGalaxy = (galaxyId: string) => {
+    setPhase('traveling');
+    navigate(galaxyPath(galaxyId, { travel: true }));
+  };
+
+  /**
+   * 상담으로 넘어간다.
+   *
+   * ★ 은하를 그대로 들고 간다.
+   *   넘기지 않으면 서버가 다시 추천하는데, 그 사이 로그인이 바뀌거나
+   *   구절 데이터가 늘면 다른 사람이 나온다. 화면에 "요한의 은하"라고
+   *   써 놓고 마태가 답하는 셈이다.
+   *
+   * ★ 은하가 있으면 거쳐서 간다.
+   *   대화창이 갑자기 뜨는 것과, 그 사람이 있는 자리까지 가서 열리는
+   *   것은 다르다. 은하를 모르면 곧장 연다 — 갈 곳이 없는데 카메라만
+   *   움직이면 그건 지연일 뿐이다.
+   */
+  const continueCounsel = (galaxyId?: string) => {
+    const destination = counselPath({ q: question, from: stars[0]?.id, galaxy: galaxyId });
+    if (!galaxyId) {
+      navigate(destination);
+      return;
+    }
+    setPhase('traveling');
+    navigate(galaxyPath(galaxyId, { travel: true, then: destination }));
   };
 
   const reroll = () => {
@@ -131,7 +165,13 @@ export function AskRoute() {
         </Button>
       </div>
 
-      <div className={`${screen.panel} ${screen.stack}`}>
+      {/*
+        * ★ 넓은 패널을 쓴다.
+        *   기본 패널(560px)에서는 두 단이 들어가지 않아 답변이 다시
+        *   세로 한 줄이 된다. 대신 글줄은 --width-reading 으로 따로
+        *   묶어 둔다 — 패널이 넓어졌다고 문장까지 늘어나면 읽기 힘들다.
+        */}
+      <div className={`${screen.panel} ${screen.wide} ${screen.stack}`}>
         <header className={styles.question}>
           <p className="u-eyebrow">당신의 질문</p>
           <p className="u-title">{question}</p>
@@ -158,9 +198,11 @@ export function AskRoute() {
             <AnswerPanel
               result={result}
               stars={stars}
+          searchVerses={result.verses}
               onVisitStar={visitStar}
               onOpenVerse={(star) => navigate(versePath(star.id))}
-              onContinueCounsel={() => navigate(counselPath({ q: question, from: stars[0]?.id }))}
+              onContinueCounsel={() => continueCounsel(result.galaxyId)}
+              onVisitGalaxy={result.galaxyId ? () => visitGalaxy(result.galaxyId!) : undefined}
               onAskAgain={(prompt) => navigate(askPath(prompt))}
               onReroll={reroll}
               rerolling={rerolling}

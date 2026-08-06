@@ -35,6 +35,7 @@ function renderAccount(entry: string = PATHS.home) {
           <Route path={PATHS.home} element={<p>홈 화면</p>} />
           <Route path={PATHS.sky} element={<p>하늘 화면</p>} />
           <Route path={PATHS.auth} element={<AuthStub />} />
+          <Route path={PATHS.account} element={<p>내 정보 화면</p>} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>,
@@ -147,11 +148,16 @@ describe('로그인', () => {
     expect(screen.queryByText('나가시겠어요?')).not.toBeInTheDocument();
   });
 
-  it('★ 이름은 버튼이 아니다', async () => {
-    // 눌러도 갈 곳이 없는 글자를 버튼처럼 두면 한 번 눌러 보고 고장이라 여긴다.
-    renderAccount();
-    await screen.findByText('혁진');
-    expect(screen.queryByRole('button', { name: /혁진/ })).not.toBeInTheDocument();
+  it('★ 이름을 누르면 내 정보로 간다', async () => {
+    /*
+     * ★ 예전에는 "이름은 버튼이 아니다" 가 규칙이었다.
+     *   눌러도 갈 곳이 없는 글자를 버튼처럼 두면 한 번 눌러 보고 고장이라
+     *   여기기 때문이었다. 이제 갈 곳(내 정보)이 생겼으므로 규칙이 뒤집혔다.
+     *   사람들은 어차피 자기 이름을 눌러 본다.
+     */
+    const user = renderAccount();
+    await user.click(await screen.findByRole('button', { name: /혁진님 내 정보/ }));
+    expect(await screen.findByText('내 정보 화면')).toBeInTheDocument();
   });
 });
 

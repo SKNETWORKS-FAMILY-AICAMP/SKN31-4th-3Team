@@ -2,6 +2,8 @@
 
 from rest_framework import serializers
 
+from llm_core.prompts import opening_line
+
 from .models import ChatMessage, ChatSession
 
 
@@ -18,6 +20,36 @@ class ChatSessionSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source="user.email")
     seed_verse_id = serializers.CharField(source="seed_verse.id", read_only=True, default=None)
 
+    #: 이 페르소나의 첫 인사.
+    #:
+    #: ★ 서버가 내려준다.
+    #:   인사말은 페르소나 정의(llm_core/prompts)에 있다. 화면이 따로
+    #:   들고 있으면 인물을 고칠 때 두 곳을 고쳐야 하고, 한쪽만 고치면
+    #:   베드로가 요한의 인사를 한다.
+    #:
+    #: ★ LLM 을 부르지 않는다.
+    #:   첫 인사를 모델에게 만들게 하면 대화방을 여는 데 몇 초가 걸리고
+    #:   그동안 사용자는 빈 화면을 본다. 인사는 미리 정해 둔 문장이다.
+    opening = serializers.SerializerMethodField()
+
+    def get_opening(self, obj) -> str:
+        return opening_line(obj.persona_id or None)
+
+    #: 마지막으로 오간 말 한 토막.
+    #:
+    #: ★ 사이드바 목록이 이걸 쓴다.
+    #:   제목만 있으면 "새로운 대화" 가 여러 개일 때 어느 것이 어느 것인지
+    #:   알 수 없다. 마지막 말이 그 대화를 가장 잘 가리킨다.
+    #:
+    #: ★ 메시지를 통째로 싣지 않는다.
+    #:   목록에 대화 전체를 실어 나르면 방이 스무 개만 돼도 응답이 무거워진다.
+    #:   내용은 그 방을 열 때 상세(ChatSessionDetailSerializer)에서 온다.
+    last_message = serializers.SerializerMethodField()
+
+    def get_last_message(self, obj) -> str:
+        last = obj.messages.order_by("-created_at").first()
+        return last.content if last else ""
+
     class Meta:
         model = ChatSession
         fields = (
@@ -26,10 +58,26 @@ class ChatSessionSerializer(serializers.ModelSerializer):
             "title",
             "seed_verse_id",
             "seed_question",
+            "persona_id",
+            "persona_reason",
+            "opening",
+            "last_message",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "user", "created_at", "updated_at", "seed_verse_id")
+        # persona_id 는 쓰기 가능하다 — 화면이 은하를 지정할 수 있어야 한다.
+        # 비워 두면 서버가 추천으로 채운다 (ChatSessionListCreateView.perform_create).
+        # persona_reason 은 서버가 배정할 때만 쓴다. 화면이 보내는 값은 무시한다.
+        read_only_fields = (
+            "id",
+            "user",
+            "created_at",
+            "updated_at",
+            "seed_verse_id",
+            "opening",
+            "last_message",
+            "persona_reason",
+        )
 
 
 class ChatSessionDetailSerializer(ChatSessionSerializer):

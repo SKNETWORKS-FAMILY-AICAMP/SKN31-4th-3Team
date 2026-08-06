@@ -10,11 +10,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { generateBackdrop } from '../../data/backdrop';
-import { VERSE_STARS } from '../../data/verses';
-import { galaxyLabel, galaxyOfVerse, galaxySwatch, getGalaxy } from '../../data/disciples';
+import { useVerses } from '../../state/VersesContext';
+import { galaxyLabel, galaxySwatch, getGalaxy } from '../../data/disciples';
 import { GalaxyEngine } from '../../galaxy/GalaxyEngine';
 import { useGalaxy } from '../../state/GalaxyContext';
 import { useAppPhase } from '../../state/AppPhaseContext';
+import { useEncounter } from '../../state/EncounterContext';
+import { EncounterOverlay } from './EncounterOverlay';
 import { useIntroChannel } from '../../state/IntroChannel';
 import styles from './GalaxyCanvas.module.css';
 
@@ -35,6 +37,8 @@ interface Props {
   onPickGalaxy?: (galaxyId: string) => void;
   /** 카메라가 목표 별에 도착했을 때 */
   onArrive?: (starId: string) => void;
+  /** 카메라가 목표 은하에 도착했을 때 */
+  onArriveGalaxy?: (galaxyId: string) => void;
 }
 
 export function GalaxyCanvas({
@@ -42,7 +46,9 @@ export function GalaxyCanvas({
   onPickStar,
   onPickGalaxy,
   onArrive,
+  onArriveGalaxy,
 }: Props) {
+  const { stars, byId } = useVerses();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GalaxyEngine | null>(null);
   const [pointerOverStar, setPointerOverStar] = useState(false);
@@ -71,6 +77,7 @@ export function GalaxyCanvas({
   } = useGalaxy();
   const { introSeen } = useAppPhase();
   const channel = useIntroChannel();
+  const { galaxyId: encounterGalaxyId, formed } = useEncounter();
 
   const hoverGalaxy = useMemo(
     () => (hoverGalaxyId ? getGalaxy(hoverGalaxyId) : undefined),
@@ -82,6 +89,10 @@ export function GalaxyCanvas({
   // 콜백은 ref 로 흘려보낸다 — 엔진을 재생성하지 않기 위해서다.
   const arriveRef = useRef<((starId: string) => void) | undefined>(undefined);
   arriveRef.current = onArrive;
+  const arriveGalaxyRef = useRef<((galaxyId: string) => void) | undefined>(undefined);
+  arriveGalaxyRef.current = onArriveGalaxy;
+  const formedRef = useRef<(galaxyId: string) => void>(formed);
+  formedRef.current = formed;
 
   // 엔진은 마운트당 한 번만 만든다. 이후 변화는 전부 update() 로 흘려보낸다.
   useEffect(() => {
@@ -94,7 +105,7 @@ export function GalaxyCanvas({
       canvas,
       {
         backdrop,
-        curated: VERSE_STARS,
+        curated: stars,
         quality,
         reducedMotion,
         // 이번 세션에 인트로를 이미 봤다면 완성된 성운에서 시작한다.
@@ -108,6 +119,8 @@ export function GalaxyCanvas({
         // 자동 모드일 때만 듣는다 — 직접 고정한 값을 뒤에서 바꾸지 않는다.
         onPerformanceDrop: degradeQuality,
         onArrive: (starId) => arriveRef.current?.(starId),
+        onArriveGalaxy: (galaxyId) => arriveGalaxyRef.current?.(galaxyId),
+        onEmblemFormed: (galaxyId) => formedRef.current(galaxyId),
       },
     );
 
@@ -161,6 +174,7 @@ export function GalaxyCanvas({
       focusGalaxyId,
       affinityGalaxyIds,
       reducedMotion,
+      emblemGalaxyId: encounterGalaxyId,
     });
   }, [
     quality,
@@ -170,6 +184,7 @@ export function GalaxyCanvas({
     focusGalaxyId,
     affinityGalaxyIds,
     reducedMotion,
+    encounterGalaxyId,
   ]);
 
   /*
@@ -243,13 +258,18 @@ export function GalaxyCanvas({
        * 정보가 가장 필요한 순간에 없어진다. 별은 은하 안에 있으므로,
        * 별을 가리켰다면 그 별이 속한 은하를 가리킨 것이기도 하다.
        */
+      /*
+       * ★ 엔진은 별 id 만 돌려준다.
+       *   정적 표(galaxyOfVerse)로 찾으면 성경전서에서 올라온 별은
+       *   그 표에 없어서 은하 이름이 사라진다. 문맥의 byId 로 찾는다.
+       */
       const galaxy = star
-        ? (galaxyOfVerse(star)?.id ?? null)
+        ? (byId.get(star)?.discipleId ?? null)
         : (engine?.pickGalaxyAt(x, y) ?? null);
       setHoverGalaxyId(galaxy);
       setLabelAt(galaxy ? { x, y } : null);
     },
-    [interactive, setHoverStarId, setHoverGalaxyId],
+    [interactive, setHoverStarId, setHoverGalaxyId, byId],
   );
 
   const handleDown = useCallback(
@@ -312,7 +332,7 @@ export function GalaxyCanvas({
         ref={canvasRef}
         className={styles.canvas}
         role="img"
-        aria-label={`성경 구절로 이루어진 은하수. 탐색 가능한 구절 ${VERSE_STARS.length}개가 빛나고 있습니다.`}
+        aria-label={`성경 구절로 이루어진 은하수. 탐색 가능한 구절 ${stars.length}개가 빛나고 있습니다.`}
         style={interactive ? { cursor: pointerOverStar ? 'pointer' : 'grab' } : undefined}
         onPointerDown={handleDown}
         onPointerMove={handleMove}
@@ -354,6 +374,9 @@ export function GalaxyCanvas({
       )}
 
       <div className={styles.vignette} />
+
+      {/* 조우 — 별이 상징으로 모인 뒤 건네는 한 줄 */}
+      <EncounterOverlay />
     </div>
   );
 }

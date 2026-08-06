@@ -26,6 +26,7 @@ import { WordmarkLayer } from './WordmarkLayer';
 import { sampleWordmark, waitForFonts } from './wordmark';
 import { NEUTRAL_TINT, parseHex, rampFor } from './palette';
 import { constellationOf } from '../data/constellations';
+import { galaxySwatch } from '../data/disciples';
 import {
   SYSTEM_RADIUS,
   buildNodes,
@@ -36,6 +37,7 @@ import {
   type NodeTransform,
 } from './system';
 import { seededRandom } from './placement';
+import { buildEmblemField, EMBLEM_RADIUS, type EmblemField } from './emblemField';
 import {
   DEFAULT_TIMELINE,
   REDUCED_TIMELINE,
@@ -69,6 +71,23 @@ export interface EngineCallbacks {
   onPerformanceDrop?: (fps: number) => void;
   /** 카메라가 목표 별에 도착했을 때 한 번 호출된다. */
   onArrive?: (starId: string) => void;
+  /**
+   * 별이 상징 모양으로 다 모였을 때 한 번. 조우 멘트를 여기서 띄운다.
+   *
+   * ★ 카메라 도착과 다른 순간이다.
+   *   도착은 "그 앞에 섰다"이고, 이건 "형태가 드러났다"이다. 둘을 한
+   *   순간으로 합치면 별이 아직 흩어져 있는데 말부터 걸리는 꼴이 된다.
+   */
+  onEmblemFormed?: (galaxyId: string) => void;
+  /**
+   * 카메라가 목표 "은하"에 도착했을 때.
+   *
+   * ★ 별 도착과 나눠 둔다.
+   *   같은 콜백으로 합치면 받는 쪽이 "지금 온 id 가 별인가 은하인가"를
+   *   매번 되물어야 한다. 두 id 공간이 겹칠 일은 없지만, 겹치지 않는다는
+   *   보장을 코드 밖의 약속에 맡기게 된다.
+   */
+  onArriveGalaxy?: (galaxyId: string) => void;
 }
 
 export interface EngineInput {
@@ -88,6 +107,15 @@ export interface EngineInput {
    * 여기 없는 은하는 아주 옅게 물러난다.
    */
   affinityGalaxyIds?: readonly string[] | null;
+  /**
+   * 별을 상징 모양으로 모을 은하. null 이면 원래 자리로 돌아간다.
+   *
+   * ★ focusGalaxyId 와 나눠 둔다.
+   *   은하를 화면 가운데 두는 것과, 그 은하의 별을 상징으로 세우는 것은
+   *   다른 일이다. 목록을 훑느라 은하를 옮겨 다닐 때마다 별이 모였다
+   *   흩어지면 어지럽다. 상징은 "찾아왔다" 는 순간에만 선다.
+   */
+  emblemGalaxyId?: string | null;
 }
 
 /** 별이 흩어져 시작하는 반경 범위 (정규 좌표 기준, 화면 밖) */
@@ -122,6 +150,69 @@ const SYSTEM_DISTANCE = SYSTEM_RADIUS * 2.5;
  * 2D 로 화면을 밀지 않고 카메라 각도를 아주 조금 흔든다 — 3D 공간을
  * 들여다보는 감각이 여기서 나온다. 크게 주면 멀미가 난다.
  */
+/**
+ * 별이 상징 모양으로 모이는 데 걸리는 시간(초).
+ *
+ * ★ 카메라 비행(1.6초)보다 짧게 잡았다.
+ *   도착하자마자 시작하므로, 여기서 또 1.6초를 쓰면 누른 뒤 3초 넘게
+ *   아무 화면도 열리지 않는다. 형태가 드러나는 것을 지켜보기에는 충분하고
+ *   기다린다는 느낌은 아직 들지 않는 길이다.
+ */
+const EMBLEM_FORM_DURATION = 1.15;
+/** 상징이 풀려 원래 자리로 돌아가는 시간(초). 모일 때보다 빠르다. */
+const EMBLEM_RELEASE_DURATION = 0.6;
+/** reduced-motion 에서는 변형을 아주 짧게 — 형태만 바뀌고 움직임은 거의 없다. */
+const EMBLEM_FORM_REDUCED = 0.2;
+
+/**
+ * 조우할 때 은하를 담는 여유.
+ *
+ * ★ 평소 프레이밍(GALAXY_RADIUS = 1.05)보다 넉넉하다.
+ *   상징은 카메라를 정면으로 마주 보는 판이라 원반처럼 눌리지 않는다.
+ *   같은 거리에서 은하보다 화면을 더 많이 차지하고, 그래서 십자가나
+ *   닻처럼 세로로 긴 상징은 위아래가 잘렸다. 반경 0.95 인 상징이
+ *   짧은 변의 70% 안에 들어오는 거리로 잡는다.
+ */
+export const ENCOUNTER_FRAMING = EMBLEM_RADIUS * 1.2;
+
+/**
+ * 별자리 선의 최대 불투명도.
+ *
+ * ★ 0.34 에서 낮췄다.
+ *   선이 잔선일 때는 진해야 형태가 보였다. 앵커만 길게 잇는 지금은
+ *   선이 적고 길어서, 진하면 도형 위에 그은 자처럼 보인다. 옅게 두면
+ *   눈이 알아서 잇는다 — 실제 별자리를 볼 때와 같다.
+ */
+const EMBLEM_LINE_ALPHA = 0.22;
+
+/**
+ * 상징이 좌우로 도는 최대 각도(rad). 약 24도.
+ *
+ * ★ 한 바퀴 돌리지 않는 이유
+ *   90도를 지나면 상징이 옆으로 서서 선 하나가 된다. 무엇인지 알아보게
+ *   하려고 만든 형태인데, 절반의 시간을 알아볼 수 없게 된다.
+ */
+const EMBLEM_SPIN_AMPLITUDE = 0.42;
+
+/** 앵커(밝은 별)의 크기·밝기 배수. 나머지 별과 등급이 나뉘어야 별자리로 읽힌다. */
+const ANCHOR_GAIN = 1.7;
+
+/** 기본 별빛. drawStar 의 기본값과 같은 값이다. */
+const STARLIGHT_RGB: readonly [number, number, number] = [244, 244, 242];
+
+/**
+ * 흰 별빛에서 은하 색으로 옮겨 간 색을 "r, g, b" 문자열로 만든다.
+ *
+ * ★ 문자열로 돌려주는 이유
+ *   드로잉 호출마다 알파만 갈아 끼우면 되므로, 프레임당 한 번만 만들면
+ *   된다. 배열로 돌려주면 별 수만큼 문자열을 이어 붙이게 된다.
+ */
+function blendToTint(hex: string, t: number): string {
+  const [r, g, b] = parseHex(hex);
+  const mix = (from: number, to: number) => Math.round(lerp(from, to, t));
+  return `${mix(STARLIGHT_RGB[0], r)}, ${mix(STARLIGHT_RGB[1], g)}, ${mix(STARLIGHT_RGB[2], b)}`;
+}
+
 const PARALLAX_YAW = 0.07;
 const PARALLAX_PITCH = 0.05;
 /** 포인터를 따라가는 속도. 낮을수록 묵직하게 따라온다. */
@@ -407,6 +498,20 @@ export class GalaxyEngine {
   private galaxyPickCache: Float32Array;
 
   /**
+   * 별 → 상징 점 배정. 은하 전체를 한 번에 굽고 계속 들고 있는다.
+   * 조우할 때마다 다시 계산하면 그 프레임에서만 튄다.
+   */
+  private emblemField: EmblemField;
+  /** 지금 상징으로 서 있는(또는 서는 중인) 노드 인덱스. -1 이면 없다. */
+  private emblemNode = -1;
+  /** 0..1 — 1 이면 완전히 상징 모양이다. */
+  private emblemProgress = 0;
+  /** 형태가 다 잡혔다고 이미 알렸는가. 한 번만 알린다. */
+  private emblemNotified = false;
+  /** 직전 프레임의 조우 노드 — 시작하는 순간에만 카메라를 다시 띄운다. */
+  private lastEncounterNode = -1;
+
+  /**
    * 큐레이션 별의 화면 좌표 캐시 (x, y, 반경).
    * 픽킹은 이 캐시만 훑으면 되므로 재투영이 필요 없다.
    */
@@ -474,6 +579,15 @@ export class GalaxyEngine {
     this.nodeReturnElapsed = new Float32Array(this.nodes.length);
     this.nodeFade = new Float32Array(this.nodes.length).fill(1);
     this.lineScreen = new Float32Array(input.curated.length * 3);
+
+    this.emblemField = buildEmblemField(
+      input.curated.map((_, i) => ({
+        node: this.curatedNode[i],
+        x: this.curatedBuffers.targetX[i],
+        z: this.curatedBuffers.targetZ[i],
+      })),
+      this.nodes.map((node) => node.galaxy.id),
+    );
 
     const indexById = new Map(input.curated.map((star, index) => [star.id, index]));
     this.constellations = this.nodes.map((node) => {
@@ -628,6 +742,13 @@ export class GalaxyEngine {
     this.pointerX += (this.pointerTargetX - this.pointerX) * follow;
     this.pointerY += (this.pointerTargetY - this.pointerY) * follow;
 
+    /*
+     * ★ 상징을 먼저 옮긴다.
+     *   카메라가 "지금 어느 은하를 조우 중인가"를 보고 목표를 정하므로,
+     *   같은 프레임 안에서 상징 상태가 먼저 확정돼 있어야 한 프레임
+     *   늦게 따라가지 않는다.
+     */
+    this.updateEmblem(dt);
     this.updateCamera(dt);
     this.draw();
     this.frameId = requestAnimationFrame(this.tick);
@@ -643,8 +764,18 @@ export class GalaxyEngine {
     const { focusStarId, curated, reducedMotion } = this.input;
     const focusGalaxyId = this.input.focusGalaxyId ?? null;
 
-    // 포커스가 바뀌는 순간에만 비행을 시작한다.
-    if (focusStarId !== this.lastFocusId || focusGalaxyId !== this.lastFocusGalaxyId) {
+    /*
+     * ★ 조우가 시작되면 카메라를 다시 옮긴다.
+     *   별을 향해 갈 때 카메라는 그 별 앞에 선다. 그런데 상징은 은하
+     *   중심에 세워지므로, 그대로 두면 형태가 화면 구석에서 만들어진다.
+     *   조우가 시작되는 순간 은하 중심으로 다시 한 번 날아간다.
+     */
+    const encounter = this.encounterNode();
+    if (encounter !== this.lastEncounterNode) {
+      this.lastEncounterNode = encounter;
+      this.camera.flyTo(reducedMotion);
+    } else if (focusStarId !== this.lastFocusId || focusGalaxyId !== this.lastFocusGalaxyId) {
+      // 포커스가 바뀌는 순간에만 비행을 시작한다.
       this.lastFocusId = focusStarId;
       this.lastFocusGalaxyId = focusGalaxyId;
       this.camera.flyTo(reducedMotion);
@@ -663,7 +794,17 @@ export class GalaxyEngine {
      * 구절 하나를 향해 갈 때는 그 별의 은하만 남긴다.
      * 13개가 전부 켜져 있으면 어디를 보라는 화면인지 알 수 없다.
      */
-    this.soloGalaxyId = node ? node.galaxy.id : null;
+    /*
+     * ★ 조우 중에는 그 은하만 남긴다.
+     *   나머지 열두 개가 그대로 켜져 있으면 별이 모이는 것이 배경 소음에
+     *   묻힌다. 변화하는 모습을 보여 주는 게 이 구간의 전부이므로,
+     *   구절 집중과 같은 장치를 그대로 쓴다.
+     */
+    this.soloGalaxyId = encounter >= 0
+      ? this.nodes[encounter].galaxy.id
+      : node
+        ? node.galaxy.id
+        : null;
     this.updateNodeVisibility(dt);
 
     /*
@@ -675,6 +816,25 @@ export class GalaxyEngine {
      *   상수로 두면 반지름 0.4 인 위성 은하는 중심 은하와 같은 간격에 서도
      *   화면을 2.5배 덜 채운다. "애매하게 확대"되는 정체가 이것이다.
      */
+    /*
+     * 조우가 모든 것에 우선한다.
+     * 상징은 은하 중심에 서므로 은하를 담는 프레이밍을 쓴다 — 별 하나를
+     * 겨냥한 채로 두면 형태가 화면 밖으로 밀려난다.
+     */
+    if (encounter >= 0) {
+      const picked = this.nodes[encounter];
+      let aim = aimAtGalaxy(
+        transformAt(picked, this.elapsed).center,
+        picked.scale * ENCOUNTER_FRAMING,
+        this.camera.state.yaw,
+      );
+      this.restDistance = lerp(INTRO_DISTANCE, SYSTEM_DISTANCE, this.systemReveal());
+      const factor = this.currentScaleFactor();
+      aim = { ...aim, distance: aim.distance * factor };
+      this.camera.update(aim, dt, this.restDistance * factor);
+      return;
+    }
+
     let target =
       star && node
         ? aimAt(
@@ -721,7 +881,79 @@ export class GalaxyEngine {
     if (target) target = { ...target, distance: target.distance * scale };
 
     const arrived = this.camera.update(target, dt, rest);
-    if (arrived && focusStarId) this.callbacks.onArrive?.(focusStarId);
+    if (!arrived) return;
+    // 별이 먼저다 — 별을 향해 가는 중이면 은하 도착은 알리지 않는다.
+    if (focusStarId) this.callbacks.onArrive?.(focusStarId);
+    else if (focusGalaxyId) this.callbacks.onArriveGalaxy?.(focusGalaxyId);
+  }
+
+  /**
+   * 상징 변형 진행도를 옮긴다.
+   *
+   * ★ 흩어지는 것은 다른 은하로 넘어가기 전에 끝낸다.
+   *   다른 은하가 지정되면 지금 서 있는 상징을 먼저 풀고, 완전히 풀린
+   *   뒤에 새 은하로 넘어간다. 곧바로 갈아타면 별 두 무리가 서로 다른
+   *   상징을 향해 동시에 움직여 형태가 겹쳐 보인다.
+   */
+  private updateEmblem(dt: number): void {
+    const wantedId = this.input.emblemGalaxyId ?? null;
+    const wantedNode = wantedId
+      ? this.nodes.findIndex((n) => n.galaxy.id === wantedId)
+      : -1;
+
+    const forming = wantedNode >= 0 && wantedNode === this.emblemNode;
+    const reduced = this.input.reducedMotion;
+
+    if (forming) {
+      const duration = reduced ? EMBLEM_FORM_REDUCED : EMBLEM_FORM_DURATION;
+      this.emblemProgress = Math.min(1, this.emblemProgress + dt / duration);
+      if (this.emblemProgress >= 1 && !this.emblemNotified) {
+        this.emblemNotified = true;
+        this.callbacks.onEmblemFormed?.(this.nodes[this.emblemNode].galaxy.id);
+      }
+      return;
+    }
+
+    // 목표가 없거나 바뀌었다 — 지금 상징을 먼저 푼다.
+    const duration = reduced ? EMBLEM_FORM_REDUCED : EMBLEM_RELEASE_DURATION;
+    this.emblemProgress = Math.max(0, this.emblemProgress - dt / duration);
+    if (this.emblemProgress > 0) return;
+
+    // 다 풀렸으니 이제 새 목표를 받는다.
+    this.emblemNode = wantedNode;
+    this.emblemNotified = false;
+  }
+
+  /** 지금 상징이 얼마나 서 있는가. 오버레이가 같은 값을 쓰도록 열어 둔다. */
+  get emblemFormation(): number {
+    return this.emblemProgress;
+  }
+
+  /**
+   * 지금 조우 중인 노드. 없으면 -1.
+   *
+   * 상징이 조금이라도 서 있으면 조우 중으로 본다 — 풀리는 동안 카메라가
+   * 먼저 떠나 버리면 흩어지는 모습이 화면 밖에서 일어난다.
+   */
+  private encounterNode(): number {
+    return this.emblemProgress > 0.001 ? this.emblemNode : -1;
+  }
+
+  /**
+   * 성운(먼지·안개)에 곱할 밝기. 조우가 진행될수록 0 에 가까워진다.
+   *
+   * ★ 별보다 먼저 사라진다 (0.7 에서 이미 0).
+   *   별이 절반쯤 모였는데 성운이 그대로면 형태와 원반이 겹쳐 보인다.
+   *   조금 앞서 걷어 내야 "흩어져 있던 것이 모인다"로 읽힌다.
+   *
+   * ★ 조우 중인 은하만이 아니라 열세 개 전부 걷는다.
+   *   물러난 은하는 별이 6%로 남는데(SOLO_REMAINDER) 성운은 점이 아니라
+   *   덩어리라 6%여도 옅은 구름으로 보인다. 카메라가 위성 은하에 바싹
+   *   붙으면 그 뒤로 중심 은하의 큰 원반이 그대로 깔린다.
+   */
+  private emblemDustFade(): number {
+    if (this.emblemProgress <= 0) return 1;
+    return 1 - clamp01(this.emblemProgress / 0.7);
   }
 
   /**
@@ -881,6 +1113,8 @@ export class GalaxyEngine {
     order.sort((a, b) => viewDepth(this.transforms[b].center, vp) - viewDepth(this.transforms[a].center, vp));
 
     const hoverGalaxyId = this.input.hoverGalaxyId ?? null;
+    // 프레임당 한 번만 구한다 — 노드마다 같은 값이다.
+    const dustFade = this.emblemDustFade();
 
     // 안개와 먼지가 가장 아래. 그 위에 구절 별들이 올라간다.
     for (const index of order) {
@@ -901,12 +1135,24 @@ export class GalaxyEngine {
       if (hovered) this.drawGalaxyAura(index, vp, reveals);
 
       /*
-       * 물러난 은하는 안개를 그리지 않는다.
-       * 안개 블롭 하나마다 그라디언트를 새로 만들므로, 옅어져 보이지도 않는
-       * 은하 12개에 84개를 만드는 셈이 된다.
+       * ★ 상징으로 모이는 은하는 성운을 걷는다.
+       *   별은 상징으로 떠나는데 먼지와 안개는 나선 원반 모양 그대로
+       *   남는다. 카메라가 그 은하에 바싹 다가서 있으므로 원반이 화면을
+       *   가득 채우고, 상징 뒤에 정체 모를 밑그림이 깔린 것으로 보인다.
+       *   형태가 잡히는 만큼 성운도 물러나야 상징만 남는다.
        */
-      if (quality.haze && nodeLuminance > 0.12) layer.drawHaze(ctx, vp, nodeLuminance, transform);
-      layer.draw(ctx, vp, convergence, nodeLuminance, transform);
+      const dustLuminance = nodeLuminance * dustFade;
+      if (dustLuminance > 0.01) {
+        /*
+         * 물러난 은하는 안개를 그리지 않는다.
+         * 안개 블롭 하나마다 그라디언트를 새로 만들므로, 옅어져 보이지도
+         * 않는 은하 12개에 84개를 만드는 셈이 된다.
+         */
+        if (quality.haze && dustLuminance > 0.12) {
+          layer.drawHaze(ctx, vp, dustLuminance, transform);
+        }
+        layer.draw(ctx, vp, convergence, dustLuminance, transform);
+      }
 
       // 관계선은 성운 위, 별 아래. 별을 가리지 않으면서 별을 잇는다.
       this.drawConstellation(index, vp, nodeLuminance, hovered);
@@ -964,6 +1210,15 @@ export class GalaxyEngine {
   ): void {
     // 인트로에서 별이 아직 날아오는 중에는 잇지 않는다 — 선만 허공에 남는다.
     if (!this.introDone) return;
+
+    /*
+     * ★ 조우 중에는 관계선을 전부 걷는다.
+     *   조우하는 은하에서는 선이 별의 옛 자리에 남아 상징 위에 관계없는
+     *   그물을 덮는다. 나머지 은하에서는 물러난 뒤에도 선이 남아 화면
+     *   가장자리에 실금으로 보인다 — 카메라가 바싹 붙어 있어서 크게 보인다.
+     *   둘 다 이 구간에서 볼 것이 아니다.
+     */
+    if (this.emblemProgress > 0.001) return;
 
     const set = this.constellations[index];
     if (set.pairs.length === 0) return;
@@ -1230,6 +1485,39 @@ export class GalaxyEngine {
     const point = { x: 0, y: 0, z: 0 };
     const local = { x: 0, y: 0, z: 0 };
 
+    /*
+     * 상징을 세울 두 축 — 화면 오른쪽과 화면 위의 월드 방향.
+     *
+     * project() 를 뒤집어 얻는다. sx 는 (x·cosYaw − z·sinYaw) 에만 걸리므로
+     * 화면 오른쪽은 (cosYaw, 0, −sinYaw) 이고, sy 는 그 아래 두 줄을 따라
+     * (−sinPitch·sinYaw, cosPitch, −sinPitch·cosYaw) 가 화면 위가 된다.
+     * 이 두 축 위에 상징을 놓으면 카메라가 어디에 있든 정면으로 보인다.
+     */
+    const morph = this.emblemProgress;
+    const morphNode = this.emblemNode;
+    const morphEased = easeInOutCubic(morph);
+
+    /*
+     * 조우하는 은하의 색.
+     *
+     * ★ 그 사람의 색으로 물든다.
+     *   열세 개가 전부 흰 점이면 형태만 다르고 인상은 같다. 은하마다
+     *   정해 둔 색(data/disciples.ts)으로 서서히 옮겨 가면, 형태와 색이
+     *   함께 "누구의 자리인가"를 말한다.
+     *
+     * ★ 문자열은 프레임당 한 번만 만든다.
+     *   별마다 만들면 150번의 문자열 할당이 매 프레임 생긴다.
+     */
+    const morphTint =
+      morphEased > 0 && morphNode >= 0
+        ? blendToTint(galaxySwatch(this.nodes[morphNode].galaxy), morphEased)
+        : null;
+
+    // 상징을 두르는 선은 별보다 먼저 — 별 아래에 깔린다.
+    if (morphEased > 0.05 && morphNode >= 0) {
+      this.drawEmblemLinks(vp, morphEased, luminance, morphTint ?? '244, 244, 242');
+    }
+
     for (let i = 0; i < buffers.count; i += 1) {
       const nodeIndex = this.curatedNode[i];
       const node = this.nodes[nodeIndex];
@@ -1254,6 +1542,18 @@ export class GalaxyEngine {
       local.z = buffers.targetZ[i];
       const world = toWorld(local, transform);
 
+      /*
+       * 상징으로 모으기.
+       *
+       * ★ 자전을 거친 뒤에 섞는다.
+       *   toWorld 결과에 덮어야 상징이 은하와 함께 돌지 않는다. 로컬
+       *   좌표에서 섞으면 다 모인 뒤에도 상징이 천천히 돌아가 버린다.
+       */
+      const morphing = morphEased > 0 && morphNode === nodeIndex;
+      if (morphing && this.emblemField.has[i] === 1) {
+        this.blendToEmblem(i, transform, vp, morphEased, world);
+      }
+
       const t = this.starProgress(buffers.delay[i], convergence);
       point.x = lerp(buffers.originX[i], world.x, t);
       point.y = lerp(buffers.originY[i], world.y, t);
@@ -1263,7 +1563,17 @@ export class GalaxyEngine {
       const id = this.curatedIds[i];
       const isFocus = id === focusStarId;
       const isHover = id === hoverStarId;
-      const boost = isFocus ? 1.6 : isHover ? 1.3 : 1;
+      /*
+       * ★ 앵커 별은 등급이 다르다.
+       *   별자리가 별자리로 읽히는 것은 선 때문이 아니라, 밝은 별 몇 개가
+       *   눈에 먼저 들어오기 때문이다. 전부 같은 크기면 선을 아무리 그어도
+       *   점무리에 그은 자국으로 보인다. 형태가 잡히는 만큼만 밝아진다.
+       */
+      const anchorGain =
+        morphing && this.emblemField.anchor[i] === 1
+          ? 1 + (ANCHOR_GAIN - 1) * morphEased
+          : 1;
+      const boost = (isFocus ? 1.6 : isHover ? 1.3 : 1) * anchorGain;
 
       /*
        * 크기와 밝기에 하한을 둔다.
@@ -1301,7 +1611,9 @@ export class GalaxyEngine {
         this.ctx.globalAlpha = 1;
       }
 
-      drawStar(this.ctx, p, radius, alpha, false);
+      // 상징으로 모이는 은하만 그 사람의 색으로 물든다.
+      const tint = morphTint && morphNode === nodeIndex ? morphTint : undefined;
+      drawStar(this.ctx, p, radius, alpha, false, tint);
 
       if ((isFocus || isHover) && alpha > 0.1) {
         this.ctx.strokeStyle = `rgba(232, 236, 242, ${isFocus ? 0.55 : 0.28})`;
@@ -1311,6 +1623,176 @@ export class GalaxyEngine {
         this.ctx.stroke();
       }
     }
+  }
+
+  /**
+   * 별 하나를 상징 위치 쪽으로 끌어당긴다. world 를 제자리에서 고친다.
+   *
+   * ★ 상징을 세우는 두 축은 카메라에서 뽑는다.
+   *   project() 를 뒤집은 값이다. sx 는 (x·cosYaw − z·sinYaw) 에만 걸리므로
+   *   화면 오른쪽은 (cosYaw, 0, −sinYaw) 이고, sy 를 따라가면 화면 위는
+   *   (−sinPitch·sinYaw, cosPitch, −sinPitch·cosYaw) 가 된다. 이 두 축
+   *   위에 놓으면 카메라가 어디에 있든 상징이 정면으로 보인다.
+   *
+   * ★ 자전을 거친 뒤에 섞는다.
+   *   toWorld 결과를 덮어야 상징이 은하와 함께 돌지 않는다. 로컬 좌표에서
+   *   섞으면 다 모인 뒤에도 상징이 천천히 돌아가 버린다.
+   */
+  private blendToEmblem(
+    i: number,
+    transform: NodeTransform,
+    vp: Viewport,
+    t: number,
+    world: { x: number; y: number; z: number },
+  ): void {
+    const cosYaw = Math.cos(vp.yaw);
+    const sinYaw = Math.sin(vp.yaw);
+    const cosPitch = Math.cos(vp.pitch);
+    const sinPitch = Math.sin(vp.pitch);
+
+    /*
+     * 세 축.
+     *   오른쪽  R = ( cosYaw, 0, −sinYaw )
+     *   위      U = ( −sinPitch·sinYaw, cosPitch, −sinPitch·cosYaw )
+     *   앞      N = R × U — 보는 사람 쪽
+     * R 과 U 는 project() 를 뒤집어 얻은 것이고, N 은 깊이가 커지는
+     * 방향의 반대다.
+     */
+    const nx = -sinYaw * cosPitch;
+    const ny = -sinPitch;
+    const nz = -cosYaw * cosPitch;
+
+    /*
+     * ★ 세로축으로 천천히 돌린다.
+     *   각도를 주면 앞으로 나온 별과 뒤에 있는 별이 다른 속도로 움직이고,
+     *   그 차이가 입체로 읽힌다. 한 바퀴 돌리지는 않는다 — 90도를 지나면
+     *   상징이 옆으로 서서 무엇인지 알 수 없게 된다.
+     */
+    const spin = this.emblemSpin();
+    const cosS = Math.cos(spin);
+    const sinS = Math.sin(spin);
+
+    const u0 = this.emblemField.u[i];
+    const v0 = this.emblemField.v[i];
+    const w0 = this.emblemField.w[i];
+
+    const u = (u0 * cosS + w0 * sinS) * transform.scale;
+    const w = (w0 * cosS - u0 * sinS) * transform.scale;
+    const v = v0 * transform.scale;
+
+    const ex = transform.center.x + cosYaw * u + -sinPitch * sinYaw * v + nx * w;
+    const ey = transform.center.y + cosPitch * v + ny * w;
+    const ez = transform.center.z + -sinYaw * u + -sinPitch * cosYaw * v + nz * w;
+
+    world.x = lerp(world.x, ex, t);
+    world.y = lerp(world.y, ey, t);
+    world.z = lerp(world.z, ez, t);
+  }
+
+  /**
+   * 상징이 지금 돌아가 있는 각도(rad).
+   *
+   * ★ 계속 돈다. 다만 왕복한다.
+   *   한 방향으로 계속 돌리면 90도마다 상징이 옆으로 서서 선 하나가 된다.
+   *   느린 사인파로 좌우를 오가면 멈춘 순간이 없으면서도 정면을 잃지 않는다.
+   *   주기 약 14초 — 보고 있으면 움직이는 게 보이지만, 눈이 따라가지는 않는
+   *   속도다.
+   */
+  private emblemSpin(): number {
+    if (this.input.reducedMotion) return 0;
+    return Math.sin(this.elapsed * 0.45) * EMBLEM_SPIN_AMPLITUDE;
+  }
+
+  /**
+   * 변형 중인 별 하나의 화면 좌표. 카메라 뒤면 null.
+   * 선을 그을 때 두 끝을 같은 규칙으로 구하도록 한 곳에 모아 둔다.
+   */
+  private emblemScreen(
+    i: number,
+    transform: NodeTransform,
+    vp: Viewport,
+    t: number,
+    local: { x: number; y: number; z: number },
+    world: { x: number; y: number; z: number },
+  ): { sx: number; sy: number } | null {
+    local.x = this.curatedBuffers.targetX[i];
+    local.y = this.curatedBuffers.targetY[i];
+    local.z = this.curatedBuffers.targetZ[i];
+    const w = toWorld(local, transform);
+    world.x = w.x;
+    world.y = w.y;
+    world.z = w.z;
+    this.blendToEmblem(i, transform, vp, t, world);
+
+    const p = project(world, vp);
+    return p.visible ? { sx: p.sx, sy: p.sy } : null;
+  }
+
+  /**
+   * 상징을 두르는 선.
+   *
+   * ★ 왜 선이 필요한가
+   *   150개 점만으로는 형태가 성기게 읽힌다. 밤하늘의 별자리도 점만으로는
+   *   안 보이고, 선을 그어야 곰이 되고 사자가 된다. 여기서도 같다.
+   *
+   * ★ 별자리 선(drawConstellation)과 섞지 않는다
+   *   그쪽은 구절 사이의 의미 관계다. 변형 중에는 그 선을 걷고 이것만 남긴다.
+   *
+   * ★ 별보다 먼저 그린다
+   *   선이 별 위를 지나가면 점이 흐려져 형태가 뭉개진다.
+   */
+  private drawEmblemLinks(
+    vp: Viewport,
+    t: number,
+    luminance: number,
+    tint: string,
+  ): void {
+    /*
+     * ★ 이 은하의 구간만 훑는다.
+     *   links 에는 열세 은하의 선이 다 들어 있다. 전부 훑으면 다른 은하
+     *   별의 상징 좌표를 지금 은하 중심에 대고 찍게 되고, 화면에는
+     *   상징 뒤로 나머지 열두 개가 겹쳐 깔린다.
+     */
+    const node = this.emblemNode;
+    const { links, linkRange } = this.emblemField;
+    if (node < 0 || node * 2 + 1 >= linkRange.length) return;
+    const from = linkRange[node * 2];
+    const to = linkRange[node * 2 + 1];
+    if (to <= from) return;
+
+    const transform = this.transforms[node];
+    const { ctx } = this;
+    const local = { x: 0, y: 0, z: 0 };
+    const world = { x: 0, y: 0, z: 0 };
+
+    /*
+     * 선이 늦게 나타난다.
+     * 별이 아직 날아오는 중에 선부터 그으면, 허공에 그물이 먼저 걸리고
+     * 그 안으로 별이 들어오는 순서가 되어 마술이 아니라 조립으로 보인다.
+     */
+    const appear = clamp01((t - 0.45) / 0.55);
+    const alpha = EMBLEM_LINE_ALPHA * appear * luminance;
+    if (alpha < 0.02) return;
+
+    ctx.strokeStyle = `rgba(${tint}, ${alpha.toFixed(3)})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+
+    for (let k = from; k < to; k += 2) {
+      const a = this.emblemScreen(links[k], transform, vp, t, local, world);
+      if (!a) continue;
+      const ax = a.sx;
+      const ay = a.sy;
+
+      const b = this.emblemScreen(links[k + 1], transform, vp, t, local, world);
+      // 한쪽이 카메라 뒤면 잇지 않는다 — 화면을 가로지르는 줄이 생긴다
+      if (!b) continue;
+
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(b.sx, b.sy);
+    }
+
+    ctx.stroke();
   }
 
   /** "빛이 있으라" 순간의 방사형 광량 펄스. */

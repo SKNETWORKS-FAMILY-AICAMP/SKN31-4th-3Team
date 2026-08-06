@@ -18,12 +18,13 @@ import { useNavigate } from 'react-router-dom';
 import type { VerseStar } from '../../data/types';
 import { formatRef } from '../../data/verses';
 import { THEME_LABELS } from '../../data/intents';
-import { galaxyLabel, galaxyOfVerse, galaxySwatch } from '../../data/disciples';
+import { galaxyOfStar, galaxySwatch } from '../../data/disciples';
 import { useRepositories } from '../../services/RepositoryProvider';
 import { useAppPhase } from '../../state/AppPhaseContext';
 import { useGalaxy } from '../../state/GalaxyContext';
 import { Button } from '../common/Button';
 import { MotifScene, MOTIF_LABELS } from './MotifScene';
+import { EmblemBadge } from '../galaxy/EmblemBadge';
 import { counselPath } from '../../routes/paths';
 import styles from './VerseDetailOverlay.module.css';
 
@@ -141,20 +142,28 @@ export function VerseDetailOverlay({ verseId, onClose }: Props) {
               </button>
             </div>
 
-            {/* 이 별이 어느 은하에 있는지 — 하늘에서 길을 잃지 않게 한다. */}
+            {/*
+              이 별이 어느 은하에 있는지 — 하늘에서 길을 잃지 않게 한다.
+
+              ★ 조우에서 본 상징이 여기서도 돈다.
+                별이 상징으로 모이고 한 줄이 지나간 다음 이 창이 열린다.
+                여기에 아무 흔적이 없으면 방금 만난 사람이 사라진다.
+            */}
             {(() => {
-              const galaxy = galaxyOfVerse(star.id);
+              const galaxy = galaxyOfStar(star);
               if (!galaxy) return null;
               return (
-                <p className={styles.origin}>
-                  <span
-                    className={styles.swatch}
-                    style={{ backgroundColor: galaxySwatch(galaxy) }}
-                    aria-hidden="true"
-                  />
-                  {galaxyLabel(galaxy)}
-                  <span className="u-muted"> · {galaxy.role}</span>
-                </p>
+                <div className={styles.origin}>
+                  <EmblemBadge galaxyId={galaxy.id} />
+                  <p className={styles.originRole}>
+                    <span
+                      className={styles.swatch}
+                      style={{ backgroundColor: galaxySwatch(galaxy) }}
+                      aria-hidden="true"
+                    />
+                    {galaxy.role}
+                  </p>
+                </div>
               );
             })()}
 
@@ -215,7 +224,17 @@ export function VerseDetailOverlay({ verseId, onClose }: Props) {
             <div className={styles.actions}>
               <Button
                 variant="primary"
-                onClick={() => navigate(counselPath({ from: star.id }))}
+                /*
+                 * ★ 은하를 함께 넘긴다.
+                 *   예전에는 구절 id 만 넘겼고, 상담 화면이 정적 표
+                 *   (galaxyOfVerse)로 은하를 되찾았다. 그 표에는 큐레이션
+                 *   702절만 있어서, 성경전서에서 올라온 별로 상담을 열면
+                 *   엉뚱한 은하가 왼쪽 위에 떴다. 별은 자기가 어느 은하
+                 *   소속인지 이미 알고 있으므로 되찾을 이유가 없다.
+                 */
+                onClick={() =>
+                  navigate(counselPath({ from: star.id, galaxy: star.discipleId }))
+                }
               >
                 상담 이어가기
               </Button>

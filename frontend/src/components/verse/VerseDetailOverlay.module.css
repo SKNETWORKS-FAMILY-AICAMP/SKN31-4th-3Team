@@ -124,13 +124,30 @@
  * 소속 은하 표시.
  * 별의 색과 같은 점을 찍어 두면 하늘에서 본 색과 여기 이름이 이어진다.
  */
+/*
+ * 왼쪽 위의 표식 자리.
+ *
+ * ★ 세로로 쌓는다.
+ *   도는 상징 · 은하 이름 · 그 사람의 역할 순서다. 가로로 늘어놓으면
+ *   좁은 화면에서 상징이 글에 밀려 줄바꿈된다.
+ */
 .origin {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
+  flex-direction: column;
+  align-items: flex-start;
   margin: calc(var(--sp-4) * -1) 0 0;
   font-size: var(--fs-sm);
   color: var(--text-2);
+}
+
+.originRole {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: calc(var(--sp-3) * -1) 0 0;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
 }
 
 .swatch {

@@ -23,13 +23,6 @@ def client():
 
 
 @pytest.fixture
-def seeded(db):
-    from django.core.management import call_command
-
-    call_command("seed_scripture")
-
-
-@pytest.fixture
 def auth(client, db):
     client.post(
         "/api/v1/auth/register/",
@@ -43,6 +36,14 @@ def auth(client, db):
     ).data["access"]
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
     return client
+
+
+@pytest.fixture
+def user(auth, db):
+    """auth 픽스처가 만든 그 사람. MBTI 를 바꿔 가며 볼 때 쓴다."""
+    from django.contrib.auth import get_user_model
+
+    return get_user_model().objects.get(email="a@b.com")
 
 
 class TestOpenEndpoints:
@@ -92,7 +93,14 @@ class TestOpenEndpoints:
             "empathy",
             "reflection",
             "verse_ids",
+            # 검색이 고른 구절의 내용. 화면 목록(은하당 150절)에 없는
+            # 구절이 올라올 수 있으므로 id 만으로는 카드를 못 그린다.
+            "verses",
             "follow_ups",
+            # 구절만으로는 갈 곳이 없다. 어느 은하로 가면 되는지도 함께 준다.
+            "galaxy_id",
+            "galaxy_name",
+            "galaxy_reason",
         }
         assert response.data["intent"] == "anxiety"
 
@@ -292,3 +300,174 @@ class TestSeed:
 
     def test_curated_count(self, seeded, db):
         assert Verse.objects.filter(depth="full").count() == 40
+
+
+class TestPersonaAssignment:
+    """
+    은하를 고르지 않고 홈에서 바로 질문한 경우, 서버가 골라 준다.
+
+    ★ 가장 중요한 계약: 사용자가 고른 값을 덮지 않는다.
+      구절에서 이어 왔거나 은하를 직접 눌렀다면 그 선택이 이긴다.
+    """
+
+    def test_empty_persona_is_filled_by_recommendation(self, auth, seeded, db):
+        response = auth.post(
+            "/api/v1/chat/sessions/",
+            {"title": "요즘 너무 불안해서 잠이 안 와요"},
+            format="json",
+        )
+        assert response.status_code == 201
+        assert response.data["persona_id"], "추천이 채워지지 않음"
+
+    def test_user_choice_is_never_overwritten(self, auth, seeded, db):
+        response = auth.post(
+            "/api/v1/chat/sessions/",
+            {"title": "요즘 너무 불안해서 잠이 안 와요", "persona_id": "matthew"},
+            format="json",
+        )
+        assert response.data["persona_id"] == "matthew"
+
+    def test_center_is_not_auto_assigned(self, auth, seeded, db):
+        """
+        고르지 않았을 때 늘 예수가 나오면 열두 은하를 만든 의미가 없다.
+        """
+        for question in ["실패할까 봐 두려워요", "사람들 속에서도 외로워요", "번아웃이 왔어요"]:
+            response = auth.post("/api/v1/chat/sessions/", {"title": question}, format="json")
+            assert response.data["persona_id"] != "jesus"
+
+    def test_different_questions_get_different_personas(self, auth, seeded, db):
+        picks = set()
+        for question in [
+            "실패할까 봐 두려워요",
+            "사람들 속에서도 외로워요",
+            "진로를 어떻게 정해야 할지 모르겠어요",
+            "번아웃이 와서 아무것도 못 하겠어요",
+        ]:
+            response = auth.post("/api/v1/chat/sessions/", {"title": question}, format="json")
+            picks.add(response.data["persona_id"])
+        assert len(picks) >= 3, f"질문이 달라도 같은 인물만 나옴: {picks}"
+
+    def test_reason_comes_back_with_the_recommendation(self, auth, seeded, db):
+        """
+        화면 상단에 "왜 이 인물인지" 를 보여 준다. 서버가 골랐으면
+        그 근거도 함께 와야 한다.
+        """
+        response = auth.post(
+            "/api/v1/chat/sessions/",
+            {"title": "요즘 너무 불안해서 잠이 안 와요"},
+            format="json",
+        )
+        reason = response.data["persona_reason"]
+        assert reason, "추천은 했는데 근거가 비어 있음"
+        assert not any(ch.isdigit() for ch in reason), f"점수가 샜다: {reason}"
+
+    def test_reason_is_empty_when_the_user_chose(self, auth, seeded, db):
+        """
+        ★ 자기가 누른 은하에 이유를 붙이지 않는다.
+          "당신이 골라서 이 사람입니다" 는 아무것도 알려 주지 않는다.
+        """
+        response = auth.post(
+            "/api/v1/chat/sessions/",
+            {"title": "요즘 너무 불안해서 잠이 안 와요", "persona_id": "matthew"},
+            format="json",
+        )
+        assert response.data["persona_reason"] == ""
+
+    def test_reason_cannot_be_set_by_the_client(self, auth, seeded, db):
+        """
+        읽기 전용이다. 화면이 보낸 문장이 그대로 저장되면, 근거가
+        서버의 판단인지 클라이언트가 지어낸 말인지 구분할 수 없다.
+        """
+        response = auth.post(
+            "/api/v1/chat/sessions/",
+            {"title": "무섭습니다", "persona_reason": "내가 정한 이유"},
+            format="json",
+        )
+        assert response.data["persona_reason"] != "내가 정한 이유"
+
+    def test_reason_survives_reopening(self, auth, seeded, db):
+        """저장된 값이어야 한다 — 다시 열어도 같은 문장이 나온다."""
+        created = auth.post(
+            "/api/v1/chat/sessions/",
+            {"title": "실패할까 봐 두려워요"},
+            format="json",
+        )
+        again = auth.get(f"/api/v1/chat/sessions/{created.data['id']}/")
+        assert again.data["persona_reason"] == created.data["persona_reason"]
+
+    def test_judas_is_never_auto_assigned(self, auth, seeded, db):
+        """슬픔을 안고 온 사람에게 자동으로 붙이지 않는다."""
+        for question in ["너무 슬퍼서 눈물이 나요", "그 사람을 용서하기가 어려워요"]:
+            response = auth.post("/api/v1/chat/sessions/", {"title": question}, format="json")
+            assert response.data["persona_id"] != "judas"
+
+    def test_opening_matches_the_assigned_persona(self, auth, seeded, db):
+        from llm_core.prompts import opening_line
+
+        response = auth.post("/api/v1/chat/sessions/", {"title": "실패할까 봐 두려워요"}, format="json")
+        assert response.data["opening"] == opening_line(response.data["persona_id"])
+
+
+class TestAskIncludesGalaxy:
+    """
+    ★ 이 절이 있는 이유
+      추천 시스템을 다 만들어 두고도 답변 화면에 아무것도 내보내지 않아서,
+      사용자에게는 예전과 똑같이 "구절만 주는" 화면으로 보였던 적이 있다.
+      계산이 도는 것과 화면에 닿는 것은 다른 문제다.
+    """
+
+    URL = "/api/v1/scripture/ask/"
+
+    def test_anonymous_can_still_ask(self, client, seeded, db):
+        """
+        ★ 입구를 막지 않는다.
+          처음 온 사람이 질문 한 줄 던져 보는 것이 이 서비스의 시작이다.
+          거기에 로그인을 세우면 대부분은 그냥 나간다.
+        """
+        response = client.post(self.URL, {"question": "실패할까 봐 두려워요"}, format="json")
+        assert response.status_code == 200
+        assert response.data["galaxy_id"]
+        assert response.data["galaxy_name"]
+
+    def test_center_is_not_recommended(self, client, seeded, db):
+        for question in ["무섭습니다", "외롭습니다", "번아웃이 왔어요"]:
+            response = client.post(self.URL, {"question": question}, format="json")
+            assert response.data["galaxy_id"] != "jesus"
+
+    def test_judas_is_not_recommended(self, client, seeded, db):
+        for question in ["너무 슬퍼서 눈물이 나요", "그 사람을 용서하기가 어려워요"]:
+            response = client.post(self.URL, {"question": question}, format="json")
+            assert response.data["galaxy_id"] != "judas"
+
+    def test_mbti_changes_the_galaxy(self, auth, user, seeded, db):
+        """
+        ★ 로그인한 사람의 유형이 실제로 결과를 바꾸는가.
+          안 바뀌면 회원가입에서 MBTI 를 받는 일이 의미를 잃는다.
+        """
+        picks = set()
+        for mbti in ["INFJ", "ESTP", "ISTJ", "ENFP"]:
+            user.mbti = mbti
+            user.save(update_fields=["mbti"])
+            response = auth.post(self.URL, {"question": "요즘 너무 불안해요"}, format="json")
+            picks.add(response.data["galaxy_id"])
+        assert len(picks) >= 2, f"MBTI 를 바꿔도 같은 인물만 나옴: {picks}"
+
+    def test_verses_do_not_change_with_mbti(self, auth, user, seeded, db):
+        """
+        ★ 위로는 성격에 따라 달라지지 않는다.
+          MBTI 는 "누가 들어 줄 것인가"에만 쓴다. 공감 문장과 구절까지
+          유형별로 갈리면 그건 상담이 아니라 성격 검사다.
+        """
+        seen = set()
+        for mbti in ["INFJ", "ESTP", "ISTJ"]:
+            user.mbti = mbti
+            user.save(update_fields=["mbti"])
+            response = auth.post(self.URL, {"question": "요즘 너무 불안해요"}, format="json")
+            seen.add((response.data["empathy"], tuple(response.data["verse_ids"])))
+        assert len(seen) == 1
+
+    def test_reason_carries_no_score(self, client, seeded, db):
+        response = client.post(self.URL, {"question": "외롭습니다"}, format="json")
+        reason = response.data["galaxy_reason"]
+        assert reason
+        assert not any(ch.isdigit() for ch in reason)

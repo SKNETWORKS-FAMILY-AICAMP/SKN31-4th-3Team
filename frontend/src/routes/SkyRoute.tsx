@@ -12,13 +12,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useMatch, useNavigate, useSearchParams } from 'react-router-dom';
-import { VERSE_STARS, getVerseStarsByGalaxy } from '../data/verses';
-import { ALL_GALAXIES, CENTER_GALAXY, galaxyOfVerse, galaxySwatch } from '../data/disciples';
+import { useVerses } from '../state/VersesContext';
+import { ALL_GALAXIES, CENTER_GALAXY, galaxyOfVerse, galaxySwatch, getGalaxy } from '../data/disciples';
 import { REPRESENTED_VERSE_COUNT } from '../data/backdrop';
 import { useGalaxy } from '../state/GalaxyContext';
+import { useEncounter } from '../state/EncounterContext';
 import { StarKeyboardLayer } from '../components/galaxy/StarKeyboardLayer';
 import { Button } from '../components/common/Button';
-import { PATHS, TRAVEL_PARAM } from './paths';
+import { GALAXY_PARAM, PATHS, THEN_PARAM, TRAVEL_PARAM } from './paths';
 import screen from './Screen.module.css';
 import styles from './SkyRoute.module.css';
 
@@ -26,10 +27,24 @@ import styles from './SkyRoute.module.css';
 const COLUMNS_ESTIMATE = 3;
 
 export function SkyRoute() {
+  const { stars: allStars, byGalaxy } = useVerses();
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { focusStar, focusStarId, focusGalaxy, setHoverStarId, travelingToId, travelTo } =
-    useGalaxy();
+  const {
+    focusStar,
+    focusStarId,
+    focusGalaxy,
+    setHoverStarId,
+    travelingToId,
+    travelTo,
+    travelingToGalaxyId,
+    travelToGalaxy,
+  } = useGalaxy();
+  /*
+   * 조우가 진행 중이면 목록을 열지 않는다.
+   * 별이 상징으로 모이는 장면이 이 화면의 볼거리인데, 목록이 그 위를 덮는다.
+   */
+  const { stage: encounterStage } = useEncounter();
   const [listOpen, setListOpen] = useState(false);
   /*
    * 목록에서 펼쳐 볼 은하. 기본은 중심이다.
@@ -45,6 +60,8 @@ export function SkyRoute() {
    * 보겠다고 정했으므로, 도착하면 상세가 바로 열려야 한다.
    */
   const travelRequested = params.get(TRAVEL_PARAM) === '1';
+  /* 답변 화면에서 "은하 찾아가기"로 들어온 경우. 별이 아니라 은하가 목표다. */
+  const galaxyParam = params.get(GALAXY_PARAM);
   // 이 화면은 /verse/:id 의 배경으로도 쓰인다.
   const asBackground = Boolean(useMatch(PATHS.verse));
 
@@ -71,7 +88,51 @@ export function SkyRoute() {
     if (galaxy) setOpenGalaxyId(galaxy.id);
   }, [focusStarId]);
 
-  const openGalaxyStars = useMemo(() => getVerseStarsByGalaxy(openGalaxyId), [openGalaxyId]);
+  /*
+   * 은하로 안내받아 들어온 경우 — 카메라를 그 은하에 두고 목록도 함께 연다.
+   *
+   * ★ 목록까지 여는 이유
+   *   카메라만 옮기면 화면에는 색이 조금 다른 성운 하나가 있을 뿐이다.
+   *   "여기가 요한의 은하고, 이런 구절들이 있다"까지 보여야 안내가 끝난다.
+   */
+  useEffect(() => {
+    if (asBackground || !galaxyParam) return;
+    if (!getGalaxy(galaxyParam)) return; // 손으로 고친 주소로도 깨지지 않게
+
+    setOpenGalaxyId(galaxyParam);
+    if (travelRequested) travelToGalaxy(galaxyParam);
+    else focusGalaxy(galaxyParam);
+  }, [galaxyParam, travelRequested, asBackground, focusGalaxy, travelToGalaxy]);
+
+  /*
+   * 도착하면 목록이 열린다.
+   *
+   * ★ 비행 중에는 열지 않는다.
+   *   카메라가 날아가는 동안 목록이 이미 떠 있으면, 그 1.6초는 그냥
+   *   배경이 움직이는 시간이 된다. 도착이 곧 도착으로 보여야 한다.
+   *
+   * ★ then 이 있으면 열지 않는다.
+   *   상담으로 넘어갈 참인데 목록이 한 프레임 스쳤다 사라지면 깜빡임만
+   *   남는다.
+   */
+  useEffect(() => {
+    if (asBackground || !galaxyParam || travelingToGalaxyId) return;
+    if (params.get(THEN_PARAM)) return;
+    if (!getGalaxy(galaxyParam)) return;
+    /*
+     * ★ 조우가 끝난 뒤에 연다.
+     *   도착하자마자 목록이 뜨면 별이 상징으로 모이는 장면을 목록이
+     *   덮는다. "은하 찾아가기" 는 그 은하를 만나러 가는 길인데,
+     *   정작 만나는 순간이 가려진다.
+     */
+    if (encounterStage) return;
+    setListOpen(true);
+  }, [galaxyParam, travelingToGalaxyId, asBackground, params, encounterStage]);
+
+  const openGalaxyStars = useMemo(
+    () => byGalaxy.get(openGalaxyId) ?? [],
+    [byGalaxy, openGalaxyId],
+  );
 
   const traveling = Boolean(travelingToId);
 
@@ -87,7 +148,7 @@ export function SkyRoute() {
           aria-expanded={listOpen}
           aria-controls="star-list"
         >
-          {listOpen ? '목록 닫기' : `구절 목록 (${VERSE_STARS.length})`}
+          {listOpen ? '목록 닫기' : `구절 목록 (${allStars.length})`}
         </Button>
       </div>
 
@@ -142,7 +203,7 @@ export function SkyRoute() {
                   aria-hidden="true"
                 />
                 {galaxy.name}
-                <span className={styles.tabCount}>{galaxy.verseIds.length}</span>
+                <span className={styles.tabCount}>{byGalaxy.get(galaxy.id)?.length ?? 0}</span>
               </button>
             ))}
           </div>

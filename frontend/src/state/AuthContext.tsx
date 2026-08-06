@@ -25,6 +25,7 @@ import {
 import { ApiError, SESSION_EXPIRED, api, getAccessToken, setTokens } from '../services/apiClient';
 import { USING_API } from '../services/RepositoryProvider';
 import { nextLocalId, readLocalSession, writeLocalSession } from '../services/localSession';
+import { clearThreads } from '../services/threadStore';
 
 export interface AuthUser {
   id: number;
@@ -47,6 +48,10 @@ interface AuthValue {
   logout: () => void;
   /** 화면에서 고른 MBTI 를 계정에 남긴다. 실패해도 화면은 그대로 둔다. */
   saveMbti: (mbti: string) => Promise<void>;
+  /** 이름·MBTI 를 고친다. 실패하면 던진다 — 화면이 사실대로 알려야 한다. */
+  updateProfile: (input: { username?: string; mbti?: string }) => Promise<void>;
+  /** 계정과 대화 전부를 지운다. 되돌릴 수 없다. */
+  withdraw: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -169,9 +174,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /**
+   * 회원정보 수정.
+   *
+   * ★ 이메일은 건드리지 않는다.
+   *   로그인 아이디이고, 바꾸면 본인 확인 절차가 따라붙어야 한다.
+   *   이번 범위에서 그 절차를 제대로 만들 수 없으므로 아예 열지 않는다.
+   */
+  const updateProfile = useCallback(
+    async (input: { username?: string; mbti?: string }) => {
+      if (!USING_API) {
+        setUser((prev) => {
+          if (!prev) return prev;
+          const next = { ...prev, ...input };
+          writeLocalSession(next);
+          return next;
+        });
+        return;
+      }
+
+      const updated = await api<AuthUser>('/api/v1/auth/me/', {
+        method: 'PATCH',
+        auth: true,
+        body: input,
+      });
+      setUser((prev) => (prev ? { ...prev, ...updated } : prev));
+    },
+    [],
+  );
+
+  /**
+   * 회원 탈퇴.
+   *
+   * ★ 대화까지 함께 사라진다.
+   *   서버에서는 ChatSession 이 사용자에 CASCADE 로 걸려 있어 계정을
+   *   지우면 같이 지워진다. 브라우저에 남은 것도 여기서 지운다 —
+   *   "탈퇴했는데 사이드바에 지난 대화가 그대로" 는 사고다.
+   *
+   * ★ 실패하면 던진다.
+   *   지워졌다고 화면만 정리하고 서버에 남아 있으면, 사용자는 지웠다고
+   *   믿고 우리는 갖고 있는 상태가 된다. 실패는 실패로 알려야 한다.
+   */
+  const withdraw = useCallback(async () => {
+    if (USING_API) {
+      await api('/api/v1/auth/me/', { method: 'DELETE', auth: true });
+      setTokens(null);
+    } else {
+      writeLocalSession(null);
+    }
+    clearThreads();
+    setUser(null);
+  }, []);
+
   const value = useMemo(
-    () => ({ user, ready, login, register, logout, saveMbti }),
-    [user, ready, login, register, logout, saveMbti],
+    () => ({ user, ready, login, register, logout, saveMbti, updateProfile, withdraw }),
+    [user, ready, login, register, logout, saveMbti, updateProfile, withdraw],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

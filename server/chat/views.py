@@ -1,5 +1,6 @@
 # chat/views.py
 
+from django.db.models import Count
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,7 +19,9 @@ from django.http import StreamingHttpResponse
 from llm_core.services import generate_llm_response
 from llm_core.services import generate_llm_stream_response
 from drf_spectacular.utils import extend_schema
+from llm_core.matching import recommend
 from llm_core.negotiation import EventStreamRenderer, IgnoreClientContentNegotiation
+from scripture.intents import match_intent, theme_labels
 
 
 class ChatSessionListCreateView(generics.ListCreateAPIView):
@@ -31,12 +34,58 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # ⚠️ 로그인한 본인의 대화방 목록만 반환
-        return ChatSession.objects.filter(user=self.request.user)
+        """
+        로그인한 본인의 대화방만, 최근 것부터.
+
+        ★ 빈 방은 빼고 준다.
+          대화방은 상담 화면에 들어서는 순간 만들어진다. 열었다가 아무
+          말도 안 하고 나가면 "새로운 대화" 가 하나 남고, 그런 것이 쌓이면
+          사이드바가 빈 방 목록이 된다. 브라우저에 남기는 쪽(threadStore)도
+          같은 규칙을 쓴다 — 두 출처가 다르게 보이면 안 된다.
+
+        ★ 정렬을 명시한다.
+          order_by 가 없으면 순서가 DB 마음이다. 지금은 우연히 id 순으로
+          와서 "최근 대화가 맨 아래" 로 보인다.
+        """
+        return (
+            ChatSession.objects.filter(user=self.request.user)
+            .annotate(message_count=Count("messages"))
+            .filter(message_count__gt=0)
+            .order_by("-updated_at")
+        )
 
     def perform_create(self, serializer):
-        # 대화방 생성 시 현재 로그인한 유저를 자동으로 저장
-        serializer.save(user=self.request.user)
+        """
+        대화방을 만든다.
+
+        ★ 은하를 고르지 않았으면 골라 준다.
+          홈에서 바로 질문한 경우 persona_id 가 비어 있다. 그때는
+          질문 주제와 사용자 MBTI 로 열두 제자 중 하나를 추천한다.
+          (중심 은하는 빼둔다 — 고르지 않았을 때 늘 예수가 나오면
+           열두 은하를 만든 의미가 없다)
+
+        ★ 사용자가 고른 값은 절대 덮지 않는다.
+          구절에서 이어 왔거나 은하를 직접 눌렀다면 그 선택이 이긴다.
+          그때는 근거도 비워 둔다 — 자기가 고른 것에 이유를 붙이지 않는다.
+        """
+        user = self.request.user
+        persona_id = (serializer.validated_data.get("persona_id") or "").strip()
+        reason = ""
+
+        if not persona_id:
+            question = (serializer.validated_data.get("title") or "").strip()
+            theme = match_intent(question) if question else None
+            label = theme_labels().get(theme) if theme else None
+            match = recommend(
+                theme,
+                getattr(user, "mbti", "") or None,
+                theme_label=label,
+                exclude_center=True,
+            )
+            persona_id = match.galaxy_id
+            reason = match.reason
+
+        serializer.save(user=user, persona_id=persona_id, persona_reason=reason)
 
 
 class ChatSessionDetailView(generics.RetrieveDestroyAPIView):
@@ -112,9 +161,12 @@ class ChatCompletionView(APIView):
             for msg in history_qs
         ]
 
-        # 5. LLM (OpenAI API) 호출
+        # 5. LLM 호출 — 이 세션의 페르소나로
         try:
-            ai_response_text = generate_llm_response(messages_history=messages_history)
+            ai_response_text = generate_llm_response(
+                messages_history=messages_history,
+                persona_id=session.persona_id or None,
+            )
         except Exception as e:
             return Response(
                 {"error": f"LLM 응답 생성 실패: {str(e)}"},
@@ -184,7 +236,10 @@ class ChatStreamView(APIView):
 
             try:
                 # LLM 스트리밍 호출
-                for chunk in generate_llm_stream_response(messages_history):
+                for chunk in generate_llm_stream_response(
+                    messages_history,
+                    persona_id=session.persona_id or None,
+                ):
                     full_ai_content += chunk
                     # SSE 규격 포맷 전송 ("data: {"content": "..."}\n\n")
                     data = json.dumps({"content": chunk}, ensure_ascii=False)

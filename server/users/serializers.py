@@ -78,7 +78,22 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('mbti',)
+        #: 이름도 바꿀 수 있다. 이메일은 로그인 아이디라 여기서 열지 않는다 —
+        #: 바꾸려면 본인 확인 절차가 따라붙어야 하고, 그것은 별도의 일이다.
+        fields = ('username', 'mbti')
 
     def validate_mbti(self, value):
         return normalize_mbti(value)
+
+    def validate_username(self, value):
+        """
+        빈 이름을 막는다.
+
+        ★ 공백만 넣은 경우도 막는다.
+          "   " 는 required 검사를 통과한다. 그대로 저장되면 화면 곳곳의
+          "○○님" 이 "님" 이 되고, 어디서 깨졌는지 찾기 어렵다.
+        """
+        name = value.strip()
+        if not name:
+            raise serializers.ValidationError('이름을 비워 둘 수 없습니다.')
+        return name

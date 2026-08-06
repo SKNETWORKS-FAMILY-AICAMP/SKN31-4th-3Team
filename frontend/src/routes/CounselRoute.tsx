@@ -14,17 +14,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { CounselMessage } from '../data/types';
-import { formatRef, getVerseStar } from '../data/verses';
+import { formatRef } from '../data/verses';
+import { useVerseStar } from '../state/VersesContext';
+import { getGalaxy } from '../data/disciples';
 import { isCrisis } from '../services/intentMatcher';
 import { USING_API, useRepositories } from '../services/RepositoryProvider';
-import { streamCounselReply } from '../services/httpRepositories';
+import { fetchThread, streamCounselReply } from '../services/httpRepositories';
 import { useAppPhase } from '../state/AppPhaseContext';
 import { useCounsel } from '../state/CounselContext';
 import { CounselThread } from '../components/counsel/CounselThread';
 import { QuestionComposer } from '../components/home/QuestionComposer';
 import { ErrorState } from '../components/common/ErrorState';
+import { useThreads } from '../state/ThreadsContext';
+import { readThread, saveThread, titleFor } from '../services/threadStore';
+import { EmblemBadge } from '../components/galaxy/EmblemBadge';
 import { Button } from '../components/common/Button';
-import { PATHS, versePath } from './paths';
+import { PATHS, THREAD_PARAM, versePath } from './paths';
 import screen from './Screen.module.css';
 import styles from './CounselRoute.module.css';
 
@@ -67,7 +72,12 @@ export function CounselRoute() {
 
   const from = params.get('from') ?? undefined;
   const question = params.get('q') ?? undefined;
-  const star = from ? getVerseStar(from) : undefined;
+  /* 답변 화면에서 이미 고른 인물. 없으면 서버가 고른다. */
+  const galaxyId = params.get('galaxy') ?? undefined;
+  /* 사이드바에서 지난 대화를 골라 들어온 경우. 새로 열지 않고 되살린다. */
+  const resumeId = params.get(THREAD_PARAM) ?? undefined;
+  const star = useVerseStar(from);
+  const { refresh: refreshThreads } = useThreads();
 
   // 같은 문맥으로 두 번 시작하지 않도록 기억한다.
   const seededRef = useRef<string | null>(null);
@@ -86,7 +96,7 @@ export function CounselRoute() {
    *   상태로 두어야 렌더와 effect 가 함께 움직인다.
    */
   const [retryToken, setRetryToken] = useState(0);
-  const seedKey = `${from ?? ''}|${question ?? ''}`;
+  const seedKey = `${from ?? ''}|${question ?? ''}|${galaxyId ?? ''}`;
 
   /*
    * 대화방 열기.
@@ -109,23 +119,82 @@ export function CounselRoute() {
    *   그래서 화면이 잠깐 언마운트돼도 dispatch 는 유효하다.
    *   버려야 하는 것은 "언마운트된 응답"이 아니라 "다른 문맥의 응답"이다.
    */
-  const openKey = `${seedKey}#${retryToken}`;
+  const openKey = `${resumeId ?? seedKey}#${retryToken}`;
 
   useEffect(() => {
     if (seededRef.current === openKey) return;
     seededRef.current = openKey;
     setPhase('counsel');
 
-    const seed = { verseId: from, question };
+    /*
+     * 지난 대화를 되살린다.
+     *
+     * ★ 새로 열지 않는다.
+     *   startThread 를 부르면 첫 인사가 다시 오고 방 id 도 새로 생긴다.
+     *   같은 대화가 둘이 되고, 사이드바에 하나가 더 쌓인다.
+     */
+    if (resumeId) {
+      /*
+       * ★ 서버가 있으면 서버에서 가져온다.
+       *   브라우저에 남긴 것은 서버가 없을 때의 대역이다. 서버로 도는데
+       *   로컬만 뒤지면, 다른 기기에서 나눈 대화나 이 브라우저를 지운 뒤의
+       *   대화가 전부 "불러오지 못했습니다" 가 된다.
+       */
+      if (USING_API) {
+        fetchThread(resumeId)
+          .then((restored) => {
+            if (seededRef.current !== openKey) return;
+            dispatch({ type: 'thread/restored', ...restored });
+          })
+          .catch((caught: unknown) => {
+            if (seededRef.current !== openKey) return;
+            dispatch({
+              type: 'error',
+              message: '이 대화를 불러오지 못했습니다.',
+              detail: detailOf(caught),
+            });
+          });
+        return;
+      }
+
+      const saved = readThread(resumeId);
+      if (saved) {
+        dispatch({
+          type: 'thread/restored',
+          threadId: saved.id,
+          seed: saved.seed,
+          messages: saved.messages,
+          personaId: saved.personaId,
+          personaReason: saved.personaReason,
+        });
+      } else {
+        // 이 브라우저에서 만든 것이 아니다. 되살릴 방법이 없으므로 사실대로 알린다.
+        dispatch({
+          type: 'error',
+          message: '이 대화를 불러오지 못했습니다.',
+          detail: '이 브라우저에 남아 있지 않은 대화입니다.',
+        });
+      }
+      return;
+    }
+
+    const seed = { verseId: from, question, galaxyId };
 
     /** 그 사이 사용자가 다른 구절·질문으로 옮겨 갔거나 다시 시작했는가 */
     const stale = () => seededRef.current !== openKey;
 
     counsel
       .startThread(seed)
-      .then(({ threadId, opening }) => {
+      .then(({ threadId, opening, personaId, reason }) => {
         if (stale()) return;
-        dispatch({ type: 'thread/started', threadId, opening, seed });
+        dispatch({
+          type: 'thread/started',
+          threadId,
+          opening,
+          seed,
+          personaId,
+          personaReason: reason,
+        });
       })
       .catch((caught: unknown) => {
         if (stale()) return;
@@ -135,7 +204,45 @@ export function CounselRoute() {
           detail: detailOf(caught),
         });
       });
-  }, [openKey, from, question, counsel, dispatch, setPhase]);
+  }, [openKey, resumeId, from, question, galaxyId, counsel, dispatch, setPhase]);
+
+  /*
+   * 오간 말을 이 브라우저에 남긴다.
+   *
+   * ★ 서버가 있으면 하지 않는다.
+   *   Django 가 이미 세션과 메시지를 저장한다. 여기서 또 남기면 두 벌이
+   *   생기고, 어느 쪽이 진짜인지 묻는 순간이 반드시 온다.
+   *
+   * ★ 첫 인사만 있는 방은 남기지 않는다.
+   *   열었다가 아무 말도 안 하고 나간 자리다. 목록에 쌓이기만 한다.
+   */
+  useEffect(() => {
+    if (USING_API) return;
+    if (!state.threadId || state.messages.length < 2) return;
+    // 스트리밍이 끝난 뒤에 남긴다 — 도중에 남기면 잘린 말이 저장된다.
+    if (state.pending) return;
+
+    const firstUser = state.messages.find((m) => m.role === 'user')?.text;
+    saveThread({
+      id: state.threadId,
+      title: titleFor(state.seed, firstUser),
+      personaId: state.personaId,
+      personaReason: state.personaReason,
+      seed: state.seed,
+      messages: state.messages,
+      createdAt: state.messages[0]?.createdAt ?? Date.now(),
+      updatedAt: Date.now(),
+    });
+    refreshThreads();
+  }, [
+    state.threadId,
+    state.messages,
+    state.pending,
+    state.seed,
+    state.personaId,
+    state.personaReason,
+    refreshThreads,
+  ]);
 
   const send = useCallback(
     (text: string) => {
@@ -210,6 +317,15 @@ export function CounselRoute() {
 
   const starting = state.messages.length === 0 && !state.error;
 
+  /*
+   * 누구와 이야기하고 있는가.
+   *
+   * ★ 이름은 화면이 찾는다.
+   *   서버는 은하 id 만 내려 준다. 이름·색·역할은 이미 disciples.ts 에
+   *   있으므로 같은 문자열을 두 번 실어 보낼 이유가 없다.
+   */
+  const persona = state.personaId ? getGalaxy(state.personaId) : undefined;
+
   return (
     <main className={styles.screen}>
       <div className={screen.topBar}>
@@ -223,7 +339,24 @@ export function CounselRoute() {
         )}
       </div>
 
-      <div className={styles.panel}>
+      <div className={styles.stage}>
+        {persona && !state.error && (
+          /*
+           * ★ 창 밖에 둔다.
+           *   대화창 안에 넣었더니 첫 화면이 상징 · 근거 · 첫 인사 세
+           *   덩어리로 시작해서, 정작 말을 걸려는 사람의 시선이 아래로
+           *   한참 밀렸다. 밖에 세우면 "여기가 그 사람의 자리" 라는 표시는
+           *   남으면서 대화가 창을 통째로 쓴다.
+           */
+          <aside className={styles.aside} aria-label="상담 상대">
+            <EmblemBadge galaxyId={persona.id} size={72} />
+            {state.personaReason && (
+              <p className={styles.personaReason}>{state.personaReason}</p>
+            )}
+          </aside>
+        )}
+
+        <div className={styles.panel}>
         {state.error && (
           <ErrorState
             message={state.error}
@@ -265,6 +398,7 @@ export function CounselRoute() {
             }
             onSubmit={send}
           />
+        </div>
         </div>
       </div>
     </main>

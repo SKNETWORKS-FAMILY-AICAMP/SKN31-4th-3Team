@@ -221,6 +221,20 @@ export function getGalaxy(id: string): DiscipleGalaxy | undefined {
   return GALAXY_BY_ID.get(id);
 }
 
+/**
+ * 별이 속한 은하.
+ *
+ * ★ galaxyOfVerse(id) 대신 이것을 쓴다.
+ *   galaxyOfVerse 는 큐레이션 702절로 만든 정적 표를 본다. 성경전서에서
+ *   올라온 별(창.1.2 같은 id)은 그 표에 없어서 undefined 가 나오고,
+ *   화면에서 은하 이름과 색이 조용히 사라진다.
+ *
+ *   별은 이미 discipleId 를 갖고 있다. 표를 다시 뒤질 이유가 없다.
+ */
+export function galaxyOfStar(star: { discipleId: string }): DiscipleGalaxy | undefined {
+  return GALAXY_BY_ID.get(star.discipleId);
+}
+
 export function galaxyOfVerse(verseId: string): DiscipleGalaxy | undefined {
   return GALAXY_BY_VERSE.get(verseId);
 }

@@ -1,22 +1,21 @@
 /*
- * 전역 메뉴.
+ * 전역 사이드바.
  *
- * ★ 덮는 판이 없다.
- *   root 는 화면 왼쪽 위에 고정되지만 크기는 내용만큼만 차지한다.
- *   그래서 메뉴를 열어 두어도 뒤의 은하수를 그대로 누를 수 있다.
+ * ★ 화면을 밀지 않고 위에 겹친다.
+ *   밀면 캔버스도 함께 밀려 카메라 구도가 틀어진다. 은하수가 제자리에
+ *   있어야 "사이드바를 잠깐 열었다" 로 읽힌다.
  */
-.root {
-  position: fixed;
-  top: var(--sp-4);
-  left: clamp(var(--sp-4), 5vw, var(--sp-8));
-  z-index: var(--z-menu);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sp-2);
-}
 
 .trigger {
+  position: fixed;
+  top: var(--sp-4);
+  /*
+   * ★ 왼쪽 끝에 더 붙인다.
+   *   본문 여백(clamp)에 맞춰 두었더니 넓은 화면에서 한참 안쪽에 떠서,
+   *   사이드바를 여는 손잡이가 아니라 화면 안의 버튼처럼 보였다.
+   */
+  left: var(--sp-4);
+  z-index: var(--z-menu);
   width: 40px;
   height: 40px;
   display: grid;
@@ -58,27 +57,48 @@
 }
 
 /*
- * 메뉴 판.
- * 배경은 반투명 + 블러. 뒤의 별이 비쳐 보이되 글자는 읽힌다.
+ * 덮는 판.
+ *
+ * ★ 아주 옅다.
+ *   짙게 깔면 사이드바를 여는 순간 다른 화면으로 넘어간 것처럼 보인다.
+ *   별이 계속 보여야 한다. 다만 포인터는 받는다 — 바깥을 눌러 닫는 것이
+ *   가장 흔한 동작이다.
  */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-menu) - 1);
+  background: rgba(3, 3, 5, 0.34);
+  animation: scrimIn var(--dur-base) var(--ease-out) both;
+}
+
 .panel {
-  min-width: 208px;
-  padding: var(--sp-2);
-  border: 1px solid var(--line-0);
-  border-radius: var(--radius-md);
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: var(--z-menu);
+  width: min(19rem, 84vw);
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--sp-4) + 44px) var(--sp-4) var(--sp-4);
+
   background: var(--bg-scrim);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  animation: menuIn var(--dur-base) var(--ease-out);
+  border-right: 1px solid var(--line-0);
+
+  animation: slideIn var(--dur-base) var(--ease-out) both;
 }
 
-@keyframes menuIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: none; }
-}
+.panel:focus { outline: none; }
 
-@media (prefers-reduced-motion: reduce) {
-  .panel { animation: none; }
+/* ── 위: 이동할 곳 ────────────────────────────────────────────── */
+
+.top {
+  flex-shrink: 0;
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--line-0);
 }
 
 .list {
@@ -90,50 +110,216 @@
   gap: 2px;
 }
 
-.item,
-.soon {
+.item {
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
   text-align: left;
-  padding: var(--sp-3);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
-.item { transition: background-color var(--dur-fast) var(--ease-out); }
 .item:hover { background: var(--bg-2); }
-
-/* 지금 보고 있는 화면 — 왼쪽에 가는 표시만 둔다 */
-.item[aria-current='page'] {
-  background: var(--bg-2);
-  border-color: var(--line-1);
-}
+.item[aria-current='page'] { background: var(--bg-2); }
 
 .label {
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
-  letter-spacing: 0.06em;
-  color: var(--light-warm);
+  font-size: var(--fs-body);
+  letter-spacing: 0.04em;
+  color: var(--ink-0);
 }
 
 .hint {
   font-size: var(--fs-caption);
   color: var(--ink-3);
-  word-break: keep-all;
 }
 
-/* 아직 만들지 않은 자리. 눌리지 않는다는 것이 생김새로 드러나야 한다. */
-.soon .label,
-.soon .hint {
+/* 아직 만들지 않은 자리 — 누를 수 없다는 것이 생김새로 드러난다 */
+.soon {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+  opacity: 0.4;
+}
+
+/* ── 가운데: 지난 상담 ────────────────────────────────────────── */
+
+/*
+ * ★ 여기만 스크롤한다.
+ *   대화가 쌓여도 위의 메뉴와 아래의 톱니는 늘 같은 자리에 있어야 한다.
+ */
+.threads {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-3) 0;
+}
+
+.sectionTitle {
+  margin: 0 0 var(--sp-2);
+  padding-inline: var(--sp-3);
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
   color: var(--ink-3);
-  opacity: 0.72;
 }
 
-/* ── 모바일: 손가락에 맞게 조금 키운다 ────────────────────────── */
-@media (max-width: 480px) {
-  .trigger { width: 44px; height: 44px; }
-  .panel { min-width: min(240px, calc(100vw - var(--sp-8))); }
+.empty {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+.threadList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.thread {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  border-radius: var(--radius-md);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.thread:hover { background: var(--bg-2); }
+
+.threadOpen {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--sp-2) var(--sp-3);
+  text-align: left;
+}
+
+.threadTitle {
+  /* 한 줄로 자른다 — 두 줄이 되면 목록이 대화 로그처럼 읽힌다 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-caption);
+  color: var(--ink-1);
+}
+
+.threadWho {
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+
+/*
+ * 나가기.
+ *
+ * ★ 늘 보인다 (호버에서만 뜨지 않는다).
+ *   호버로 숨기면 터치 기기에서는 영영 닿을 수 없다.
+ */
+.threadRemove {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin-right: var(--sp-1);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.threadRemove:hover {
+  color: var(--alert);
+  background: var(--bg-1);
+}
+
+.confirm {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding-right: var(--sp-2);
+}
+
+.confirmYes {
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--alert-line);
+  font-size: 0.6875rem;
+  color: var(--alert);
+}
+
+.confirmNo {
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  color: var(--ink-3);
+}
+
+/* ── 아래: 톱니바퀴와 계정 ────────────────────────────────────── */
+
+.bottom {
+  flex-shrink: 0;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line-0);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gear,
+.account {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  text-align: left;
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.gear:hover,
+.account:hover {
+  background: var(--bg-2);
+  color: var(--ink-0);
+}
+
+.gear[aria-current='page'] {
+  background: var(--bg-2);
+  color: var(--ink-0);
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: none; }
+}
+
+@keyframes scrimIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/*
+ * 모션 축소.
+ * 밀려 나오는 대신 그 자리에서 밝아진다 — 정보는 그대로, 움직임만 사라진다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: scrimIn var(--dur-base) linear both;
+  }
 }

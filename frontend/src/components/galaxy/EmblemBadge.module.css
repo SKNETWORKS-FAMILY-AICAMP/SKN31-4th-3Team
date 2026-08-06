@@ -1,0 +1,45 @@
+/*
+ * EmblemBadge.module.css
+ *
+ * ★ 세로로 쌓는다 — 상징 아래에 이름.
+ *   요청대로 "좌측 상단에 도는 별자리, 그 밑에 ○○의 은하" 다.
+ *   가로로 놓으면 좁은 화면에서 제목과 자리를 다투게 된다.
+ */
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  /* 본문과 붙지 않게 아래로만 띄운다 */
+  margin-bottom: var(--sp-4);
+}
+
+.canvas {
+  display: block;
+  /*
+   * 판을 깔지 않는다.
+   * 테두리를 두르면 로고처럼 보이고, 이건 로고가 아니라 그 자리의 하늘이다.
+   */
+  opacity: 0.92;
+}
+
+.label {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.name {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+}
+
+.symbol {
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  color: var(--ink-3);
+}

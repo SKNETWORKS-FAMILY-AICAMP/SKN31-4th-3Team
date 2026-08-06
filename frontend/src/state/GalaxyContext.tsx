@@ -66,6 +66,18 @@ interface GalaxyValue {
   travelTo: (id: string) => void;
   /** 비행 상태를 종료한다 — 도착했거나 취소됐을 때 */
   endTravel: () => void;
+  /**
+   * "이 은하로 날아가는 중" 상태.
+   *
+   * ★ 별 비행과 나눠 둔다.
+   *   도착했을 때 할 일이 다르다. 별은 구절 상세를 열고, 은하는 그
+   *   은하의 구절 목록을 열거나 상담으로 넘어간다. 한 값에 섞으면
+   *   도착 처리에서 "이게 별이었나 은하였나"를 다시 판별해야 한다.
+   */
+  travelingToGalaxyId: string | null;
+  /** 은하를 고르고 비행을 시작한다 */
+  travelToGalaxy: (id: string) => void;
+  endGalaxyTravel: () => void;
   quality: QualityProfile;
   /**
    * 지금 적용된 티어를 강등한다.
@@ -143,11 +155,13 @@ export function GalaxyProvider({ children }: { children: ReactNode }) {
     [selectedMbti],
   );
   const [travelingToId, setTravelingToId] = useState<string | null>(null);
+  const [travelingToGalaxyId, setTravelingToGalaxyId] = useState<string | null>(null);
 
   // 카메라만 옮기는 경우 (URL 의 ?focus= 등). 진행 중이던 비행은 취소된다.
   const focusStar = useCallback((id: string | null) => {
     setFocusStarId(id);
     setTravelingToId(null);
+    setTravelingToGalaxyId(null);
     // 별을 향하는 동안 은하 포커스가 남아 있으면 목표가 둘이 된다.
     if (id) setFocusGalaxyId(null);
   }, []);
@@ -155,6 +169,7 @@ export function GalaxyProvider({ children }: { children: ReactNode }) {
   /** 은하를 화면 가운데로 데려온다. 별 포커스는 풀린다. */
   const focusGalaxy = useCallback((id: string | null) => {
     setFocusGalaxyId(id);
+    setTravelingToGalaxyId(null);
     if (id) {
       setFocusStarId(null);
       setTravelingToId(null);
@@ -166,9 +181,20 @@ export function GalaxyProvider({ children }: { children: ReactNode }) {
     setFocusStarId(id);
     setTravelingToId(id);
     setFocusGalaxyId(null);
+    setTravelingToGalaxyId(null);
   }, []);
 
   const endTravel = useCallback(() => setTravelingToId(null), []);
+
+  // 은하를 골라 그리로 날아간다. 도착하면 목록이 열리거나 상담으로 넘어간다.
+  const travelToGalaxy = useCallback((id: string) => {
+    setFocusGalaxyId(id);
+    setTravelingToGalaxyId(id);
+    setFocusStarId(null);
+    setTravelingToId(null);
+  }, []);
+
+  const endGalaxyTravel = useCallback(() => setTravelingToGalaxyId(null), []);
 
   /*
    * MBTI 를 고르면 진행 중이던 집중은 푼다.
@@ -180,6 +206,7 @@ export function GalaxyProvider({ children }: { children: ReactNode }) {
       setFocusStarId(null);
       setFocusGalaxyId(null);
       setTravelingToId(null);
+      setTravelingToGalaxyId(null);
     }
   }, []);
 
@@ -187,6 +214,7 @@ export function GalaxyProvider({ children }: { children: ReactNode }) {
     setFocusStarId(null);
     setFocusGalaxyId(null);
     setTravelingToId(null);
+    setTravelingToGalaxyId(null);
     setHoverStarId(null);
     setHoverGalaxyId(null);
   }, []);
@@ -213,6 +241,9 @@ export function GalaxyProvider({ children }: { children: ReactNode }) {
       travelingToId,
       travelTo,
       endTravel,
+      travelingToGalaxyId,
+      travelToGalaxy,
+      endGalaxyTravel,
       quality,
       degradeQuality,
       qualityMode,
@@ -236,6 +267,9 @@ export function GalaxyProvider({ children }: { children: ReactNode }) {
       travelingToId,
       travelTo,
       endTravel,
+      travelingToGalaxyId,
+      travelToGalaxy,
+      endGalaxyTravel,
       quality,
       degradeQuality,
       qualityMode,

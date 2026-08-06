@@ -1,0 +1,144 @@
+/*
+ * EncounterOverlay.module.css
+ *
+ * ★ 화면 가운데를 비운다.
+ *   가운데에서는 별이 상징으로 모이는 중이다. 글이 그 위에 얹히면
+ *   정작 보여 주려던 것을 가린다.
+ *
+ * ★ 아래가 아니라 왼쪽이다.
+ *   아래에 두었더니 상징이 세로로 길 때(십자가·닻) 글과 겹쳤고, 무엇보다
+ *   가운데 정렬이라 시선이 상징과 글 사이를 위아래로 오갔다. 왼쪽에 세로로
+ *   세우면 한글은 왼쪽에서 읽기 시작하므로 눈이 한 번만 움직인다.
+ */
+
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: var(--sp-6) clamp(var(--sp-5), 5vw, var(--sp-8));
+
+  /*
+   * ★ 레이어는 포인터를 통과시킨다.
+   *   글이 떠 있는 동안에도 뒤의 하늘을 끌어 돌려 볼 수 있어야 한다.
+   *   누를 것은 카드 안의 버튼 하나뿐이므로 거기서만 다시 켠다.
+   */
+  pointer-events: none;
+
+  /* 글이 놓이는 왼쪽만 눌러 준다. 상징이 있는 가운데는 건드리지 않는다 */
+  background: linear-gradient(to right, rgba(3, 3, 5, 0.72) 0%, transparent 46%);
+  animation: veil var(--dur-base) var(--ease-out) both;
+}
+
+.card {
+  max-width: 20rem;
+  text-align: left;
+  /* 배경 판을 깔지 않는다 — 우주 위에 글자만 떠 있어야 한다 */
+}
+
+/* 이름 위의 가는 선. 상징에서 글로 이어지는 연결이다 */
+.thread {
+  width: clamp(var(--sp-5), 5vw, var(--sp-7));
+  height: 1px;
+  margin: 0 0 var(--sp-4);
+  background: linear-gradient(to right, var(--line-2), transparent);
+  animation: thread var(--dur-slow) var(--ease-out) both;
+}
+
+.name {
+  margin: 0;
+  font-size: clamp(1.5rem, 3.4vw, 2.125rem);
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  color: var(--ink-0);
+  animation: rise var(--dur-slow) var(--ease-out) both;
+}
+
+.symbol {
+  display: block;
+  margin-top: var(--sp-2);
+  font-size: 0.8125rem;
+  letter-spacing: 0.22em;
+  color: var(--light-moon);
+  animation: rise var(--dur-slow) var(--ease-out) 80ms both;
+}
+
+/* 근거 — 왜 이 상징인지. 작게, 그러나 반드시 있다 */
+.basis {
+  margin: var(--sp-3) 0 0;
+  font-size: 0.75rem;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  color: var(--ink-2);
+  animation: rise var(--dur-slow) var(--ease-out) 160ms both;
+}
+
+/* 조우 멘트 — 말을 거는 한 줄. 여기만 세리프다 */
+.greeting {
+  margin: var(--sp-5) 0 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.0625rem, 2.4vw, 1.375rem);
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  color: var(--light-warm);
+  animation: rise var(--dur-slow) var(--ease-out) 240ms both;
+}
+
+/* 진행 버튼 — 이 화면에서 유일하게 누르는 것 */
+.action {
+  margin-top: var(--sp-6);
+  pointer-events: auto;
+  animation: rise var(--dur-slow) var(--ease-out) 420ms both;
+}
+
+@keyframes veil {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes thread {
+  from { opacity: 0; transform: scaleX(0); transform-origin: left; }
+  to { opacity: 1; transform: scaleX(1); transform-origin: left; }
+}
+
+/* 글은 왼쪽에서 흘러들어온다 — 읽는 방향과 같다 */
+@keyframes rise {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/*
+ * 모션 축소.
+ * 글이 올라오는 대신 그 자리에서 밝아진다 — 정보는 그대로 남고
+ * 움직임만 사라진다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .thread,
+  .name,
+  .symbol,
+  .basis,
+  .greeting,
+  .action {
+    animation: veil var(--dur-base) linear both;
+    transform: none;
+  }
+}
+
+/*
+ * 좁은 화면.
+ * 왼쪽 세로 배치는 폭이 좁으면 글이 한 글자씩 끊긴다. 아래로 내린다.
+ */
+@media (max-width: 719px) {
+  .layer {
+    align-items: flex-end;
+    padding-bottom: clamp(var(--sp-6), 10vh, var(--sp-8));
+    background: linear-gradient(to top, rgba(3, 3, 5, 0.72) 0%, transparent 40%);
+  }
+
+  .card {
+    max-width: 100%;
+  }
+}

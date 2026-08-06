@@ -33,6 +33,29 @@ class ChatSession(models.Model):
     #: 구절 대신 질문에서 시작했다면 그 질문.
     seed_question = models.CharField(max_length=500, blank=True)
 
+    #: 어느 은하와 이야기하는가 (scripture.Galaxy.id / llm_core 페르소나 id).
+    #:
+    #: ★ 세션에 둔다. 메시지마다가 아니다.
+    #:   대화 도중에 인물이 바뀌면 앞뒤 말투가 어긋나 한 사람과 이야기한
+    #:   느낌이 사라진다. 다른 인물과 이야기하려면 새 대화를 연다.
+    #:
+    #: ★ ForeignKey 로 걸지 않는다.
+    #:   페르소나는 llm_core 의 프롬프트이고 Galaxy 는 화면용 데이터다.
+    #:   지금은 id 가 같지만 앞으로 갈릴 수 있고, 은하가 지워졌다고
+    #:   지난 대화가 함께 사라지면 안 된다.
+    persona_id = models.CharField(max_length=32, blank=True)
+
+    #: 왜 이 인물이 나왔는지 한 줄. 화면 상단에 조용히 보여 준다.
+    #:
+    #: ★ 왜 저장하는가 — 다시 계산하면 답이 달라진다.
+    #:   근거는 "그때 그 질문"에서 나온 것이다. 제목이 바뀌거나 구절
+    #:   데이터가 늘면 같은 대화를 다시 열었을 때 다른 이유가 뜬다.
+    #:   배정된 순간을 그대로 적어 둔다.
+    #:
+    #: ★ 사용자가 직접 고른 대화에서는 비어 있다.
+    #:   자기가 누른 은하에 "왜 이 사람인지" 를 설명하는 것은 군더더기다.
+    persona_reason = models.CharField(max_length=200, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

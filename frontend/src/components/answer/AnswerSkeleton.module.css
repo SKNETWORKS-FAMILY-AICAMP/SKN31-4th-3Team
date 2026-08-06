@@ -4,10 +4,18 @@
   gap: var(--sp-5);
 }
 
+/*
+ * 글줄은 읽기 폭 안에 둔다.
+ *
+ * ★ 패널이 넓어졌다고 회색 막대까지 1200px 로 늘리면, 답이 도착하는
+ *   순간 문장은 62ch 로 접혀서 레이아웃이 눈에 띄게 튄다.
+ *   골격은 올 것과 같은 폭이어야 한다.
+ */
 .lineGroup {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
+  max-width: var(--width-reading);
 }
 
 .line {
@@ -18,10 +26,11 @@
   animation: pulse 1.6s var(--ease-breath) infinite;
 }
 
+/* 카드도 실제와 같이 나란히 — 접히는 규칙까지 같게 둔다 */
 .cards {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-4);
 }
 
 .card {
@@ -36,6 +45,7 @@
 
 .line:nth-child(2) { animation-delay: 120ms; }
 .card:nth-child(2) { animation-delay: 200ms; }
+.card:nth-child(3) { animation-delay: 280ms; }
 
 @keyframes pulse {
   0%, 100% { opacity: 0.5; }

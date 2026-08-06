@@ -30,6 +30,7 @@ export function AnswerSkeleton() {
       <div className={styles.cards} aria-hidden="true">
         <span className={styles.card} />
         <span className={styles.card} />
+        <span className={styles.card} />
       </div>
     </div>
   );

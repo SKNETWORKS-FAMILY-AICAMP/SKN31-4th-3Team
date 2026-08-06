@@ -63,6 +63,15 @@
     'Apple SD Gothic Neo', 'Segoe UI', 'Malgun Gothic', system-ui, sans-serif;
 
   /* 세리프는 성경 구절에만 제한적으로 쓴다. SIL OFL 1.1. */
+  /*
+   * ★ 세리프는 두 자리에만 남았다.
+   *   창세기 문장(인트로)과 조우 멘트. 둘 다 화면에 그 문장 하나뿐이라
+   *   다른 서체와 섞이지 않고, 의식적인 순간을 만드는 데 제 역할을 한다.
+   *
+   *   구절 본문에서는 걷어 냈다. 카드 크기에서 획이 굵고 자간이 넓어
+   *   같은 화면의 Pretendard 문장들과 다른 종이에 인쇄된 것처럼 보였다.
+   *   "제한적으로 쓴다" 는 원칙은 지키되, 그 범위를 좁혔다.
+   */
   --font-serif: 'Noto Serif KR', Georgia, 'Times New Roman', serif;
 
   /*

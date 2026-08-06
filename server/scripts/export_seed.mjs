@@ -28,6 +28,7 @@ const { ALL_GALAXIES } = await import(`${src}/data/disciples.ts`);
 const { VERSE_STARS } = await import(`${src}/data/verses.ts`);
 const { THEME_LABELS, THEME_KEYWORDS, CRISIS_KEYWORDS } = await import(`${src}/data/intents.ts`);
 const { ANSWER_VARIANTS } = await import(`${src}/data/answers.ts`);
+const { MBTI_TYPES, AFFINITY_THRESHOLD, compatScore } = await import(`${src}/data/mbti.ts`);
 
 mkdirSync(out, { recursive: true });
 
@@ -77,3 +78,22 @@ write('intents.json', {
   crisis: CRISIS_KEYWORDS,
 });
 write('answers.json', ANSWER_VARIANTS);
+
+/*
+ * MBTI 궁합 행렬.
+ *
+ * ★ 손으로 옮기지 않는다.
+ *   16×16 = 256칸이다. 사람이 베끼면 반드시 어긋나고, 어긋나도
+ *   "추천이 좀 이상하네" 정도로만 보여서 아무도 못 찾는다.
+ *
+ * ★ SCORES 를 직접 내보내지 않고 compatScore() 로 다시 만든다.
+ *   그 함수가 모르는 값에 중립(50)을 주는 규칙까지 포함하므로,
+ *   화면과 서버가 같은 규칙을 쓰게 된다.
+ */
+write('mbti.json', {
+  types: MBTI_TYPES,
+  affinity_threshold: AFFINITY_THRESHOLD,
+  scores: Object.fromEntries(
+    MBTI_TYPES.map((a) => [a, Object.fromEntries(MBTI_TYPES.map((b) => [b, compatScore(a, b)]))]),
+  ),
+});

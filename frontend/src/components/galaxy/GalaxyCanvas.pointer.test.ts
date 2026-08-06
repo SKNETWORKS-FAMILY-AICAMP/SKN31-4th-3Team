@@ -127,6 +127,18 @@ describe('은하 이름표가 유지되는 조건', () => {
   it('★ 별 위에서도 그 별의 은하 이름이 남는다', () => {
     // 별에 올리는 순간 이름이 사라지면 "어느 은하인지"를 가장 알고 싶은
     // 순간에 정보가 없어진다.
-    expect(source).toContain('galaxyOfVerse(star)?.id');
+    //
+    // 표현을 통째로 박아 두면 리팩터링마다 깨진다. 이 테스트가 지키려는
+    // 것은 "별이 있을 때도 hoverGalaxy 를 세운다" 하나다.
+    expect(source).toMatch(/const galaxy = star[\s\S]{0,200}setHoverGalaxyId\(galaxy\)/);
+  });
+
+  it('★ 은하를 정적 표가 아니라 별 목록에서 찾는다', () => {
+    /*
+     * galaxyOfVerse 는 큐레이션 702절로 만든 표를 본다. 성경전서에서
+     * 올라온 별은 그 표에 없어서 은하 이름이 조용히 사라진다.
+     */
+    expect(source).not.toContain('galaxyOfVerse(');
+    expect(source).toContain('byId.get(star)?.discipleId');
   });
 });

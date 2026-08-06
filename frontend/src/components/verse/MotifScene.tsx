@@ -15,6 +15,7 @@ import { useEffect, useRef } from 'react';
 import type { VisualMotif } from '../../data/types';
 import { usePrefersReducedMotion } from '../../state/usePrefersReducedMotion';
 import styles from './MotifScene.module.css';
+import { objectOf } from '../../data/korean';
 
 /** 모티프별 표시 이름 — 화면과 스크린리더에 함께 쓴다. */
 export const MOTIF_LABELS: Record<VisualMotif, string> = {
@@ -246,7 +247,7 @@ export function MotifScene({ motif }: Props) {
         ref={canvasRef}
         className={styles.canvas}
         role="img"
-        aria-label={`${MOTIF_LABELS[motif]}을(를) 형상화한 추상 연출`}
+        aria-label={`${objectOf(MOTIF_LABELS[motif])} 형상화한 추상 연출`}
       />
     </div>
   );

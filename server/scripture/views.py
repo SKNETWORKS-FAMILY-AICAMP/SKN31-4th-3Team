@@ -15,11 +15,12 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Galaxy, Verse
+from .models import BibleVerse, Galaxy, Verse
 from .recommend import recommend
 from .serializers import (
     AskRequestSerializer,
     AskResultSerializer,
+    BibleVerseSerializer,
     GalaxySerializer,
     VerseSerializer,
 )
@@ -61,6 +62,39 @@ class VerseListView(generics.ListAPIView):
             queryset = queryset.filter(depth=depth)
         return queryset
 
+    def list(self, request, *args, **kwargs):
+        """
+        큐레이션 구절 + 성경전서에서 캔버스로 뽑힌 구절.
+
+        ★ 한 목록으로 준다.
+          화면은 두 출처를 구분하지 않는다. 나눠 주면 프런트가 두 번
+          받아 합치고, 그 사이 은하가 반쯤 그려진 상태가 보인다.
+
+        ★ order 를 겹치지 않게 밀어 준다.
+          프런트는 galaxy_id + order 로 좌표를 만든다. 두 표가 각각
+          0부터 매기고 있으므로 그대로 합치면 별 두 개가 정확히 같은
+          자리에 겹쳐 그려진다 — 하나가 사라진 것처럼 보인다.
+        """
+        curated = self.get_serializer(self.get_queryset(), many=True).data
+
+        extra = BibleVerse.objects.filter(on_canvas=True)
+        if galaxy := request.query_params.get("galaxy"):
+            extra = extra.filter(galaxy_id=galaxy)
+        if request.query_params.get("depth") == Verse.FULL:
+            # full 만 달라고 했으면 성경전서는 해당 없다 (전부 brief 다)
+            extra = extra.none()
+
+        offset: dict[str, int] = {}
+        for row in curated:
+            gid = row["galaxy_id"]
+            offset[gid] = max(offset.get(gid, 0), row["order"] + 1)
+
+        rows = BibleVerseSerializer(extra, many=True).data
+        for row in rows:
+            row["order"] += offset.get(row["galaxy_id"], 0)
+
+        return Response(curated + rows)
+
 
 class VerseDetailView(generics.RetrieveAPIView):
     """
@@ -71,6 +105,20 @@ class VerseDetailView(generics.RetrieveAPIView):
     queryset = Verse.objects.select_related("galaxy").all()
     serializer_class = VerseSerializer
     permission_classes = [permissions.AllowAny]
+
+
+def _mbti_of(user) -> str | None:
+    """
+    로그인했으면 유형을, 아니면 None.
+
+    ★ 로그인을 요구하지 않는다.
+      처음 온 사람이 질문 한 줄 던져 보는 것이 이 서비스의 입구다.
+      거기에 가입을 세우면 대부분은 그냥 나간다. 유형이 없으면
+      추천은 주제만 보고 고른다 — 결과가 없어지는 게 아니라 덜 개인적일 뿐이다.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return None
+    return getattr(user, "mbti", "") or None
 
 
 class AskView(APIView):
@@ -93,5 +141,6 @@ class AskView(APIView):
         result = recommend(
             question=serializer.validated_data["question"],
             attempt=serializer.validated_data.get("attempt", 0),
+            user_mbti=_mbti_of(request.user),
         )
         return Response(AskResultSerializer(result).data)
