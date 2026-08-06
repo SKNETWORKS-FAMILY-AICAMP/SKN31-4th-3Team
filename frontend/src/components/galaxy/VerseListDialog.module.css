@@ -1,0 +1,168 @@
+/*
+ * 구절 목록 창.
+ *
+ * ★ 화면 가운데에 뜬다.
+ *   가장자리에 붙이면 다시 좁아진다. 목록에는 넓이가 필요하고,
+ *   그것이 이 창이 사이드바 밖으로 나온 이유다.
+ *
+ * ★ 머리와 탭은 고정, 목록만 스크롤.
+ *   함께 밀려 올라가면 은하를 바꾸려고 매번 위로 스크롤해야 한다.
+ */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  background: rgba(3, 3, 5, 0.62);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: fadeIn var(--dur-base) var(--ease-out) both;
+}
+
+.panel {
+  position: fixed;
+  z-index: calc(var(--z-overlay) + 1);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  width: min(52rem, 92vw);
+  /* dvh — 모바일 주소창이 접혔다 펴질 때 vh 는 높이를 잘못 잡는다 */
+  max-height: min(78dvh, 44rem);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+
+  background: var(--bg-scrim);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-lg);
+
+  animation: riseIn var(--dur-base) var(--ease-out) both;
+}
+
+.panel:focus { outline: none; }
+
+.head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: var(--fw-regular);
+  letter-spacing: 0.06em;
+  color: var(--ink-0);
+}
+
+.lead {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-3);
+  word-break: keep-all;
+}
+
+.close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-md);
+  color: var(--ink-2);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.close:hover { border-color: var(--line-2); color: var(--ink-0); }
+
+/* ── 은하 선택 탭 ─────────────────────────────────────────────── */
+
+.tabs {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-pill);
+  background: var(--bg-1);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.tab:hover { border-color: var(--line-2); color: var(--ink-1); }
+
+.tab[aria-selected='true'] {
+  border-color: var(--light-silver);
+  color: var(--light-warm);
+  background: var(--bg-2);
+}
+
+.swatch {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.count {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 목록 ─────────────────────────────────────────────────────── */
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--sp-4) 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+@media (max-width: 640px) {
+  .panel {
+    width: 94vw;
+    max-height: 84dvh;
+    padding: var(--sp-4);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: fadeIn var(--dur-base) linear both; }
+}

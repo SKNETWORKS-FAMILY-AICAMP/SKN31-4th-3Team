@@ -65,9 +65,25 @@ function seedThread(title = '요즘 너무 불안해요') {
 }
 
 describe('메뉴 구성', () => {
-  it('HOME · 별자리 · 환경설정 세 자리다', () => {
-    expect(MENU_ITEMS).toHaveLength(3);
-    expect(MENU_ITEMS.map((i) => i.label)).toEqual(['HOME', '별자리', '환경설정']);
+  it('HOME · 별자리 · 구절 목록 · 환경설정 네 자리다', () => {
+    expect(MENU_ITEMS).toHaveLength(4);
+    expect(MENU_ITEMS.map((i) => i.label)).toEqual([
+      'HOME',
+      '별자리',
+      '구절 목록',
+      '환경설정',
+    ]);
+  });
+
+  it('구절 목록은 주소가 아니라 동작을 가진다', () => {
+    /*
+     * ★ to 와 action 을 섞지 않는다.
+     *   구절 목록은 화면을 옮기지 않고 창을 띄운다. to 에 넣으면
+     *   라우터가 없는 주소로 이동하려 든다.
+     */
+    const verses = MENU_ITEMS.find((i) => i.id === 'verses');
+    expect(verses?.action).toBe('verses');
+    expect(verses?.to).toBeUndefined();
   });
 
   it('갈 곳이 있는 항목은 실재하는 경로를 가리킨다', () => {

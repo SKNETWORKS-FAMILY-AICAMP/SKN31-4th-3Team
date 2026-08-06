@@ -23,10 +23,20 @@ export interface MenuItem {
    *   누를 수 없다는 것이 생김새로 드러나야 한다.
    */
   to?: string;
+  /**
+   * 화면을 옮기는 대신 그 자리에서 무언가를 여는 항목.
+   *
+   * ★ to 와 섞지 않는다.
+   *   대부분의 항목은 라우트를 바꾸지만 구절 목록은 지금 화면 위에
+   *   창을 띄운다. 둘을 같은 필드로 표현하면 "주소처럼 생겼는데
+   *   주소가 아닌 값" 이 생기고, 라우터에 그대로 넘어가 조용히 깨진다.
+   */
+  action?: 'verses';
 }
 
 export const MENU_ITEMS: readonly MenuItem[] = [
   { id: 'home', label: 'HOME', hint: '고민을 나누고 구절을 찾습니다', to: PATHS.home },
-  { id: 'sky', label: '별자리', hint: '702개 구절을 직접 둘러봅니다', to: PATHS.sky },
+  { id: 'sky', label: '별자리', hint: '별을 눌러 구절을 엽니다', to: PATHS.sky },
+  { id: 'verses', label: '구절 목록', hint: '은하별로 구절을 찾아봅니다', action: 'verses' },
   { id: 'settings', label: '환경설정', hint: '화면과 움직임을 조절합니다', to: PATHS.settings },
 ];

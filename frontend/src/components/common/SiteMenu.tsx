@@ -3,20 +3,15 @@
  * ───────────────────────────────────────────────────────────────────────
  * 전역 사이드바. 왼쪽 위 작대기 셋을 누르면 왼쪽에서 밀려 나온다.
  *
- *   위    이동할 곳 (HOME · 별자리)
- *   가운데 구절 목록 · 지난 상담
+ *   위    이동할 곳 (HOME · 별자리 · 구절 목록)
+ *   가운데 지난 상담
  *   아래  톱니바퀴(환경설정)와 계정
  *
- * ★ 두 칸이 자리를 나눠 쓴다
- *   한때 구절 목록에 자리를 많이 줬더니 지난 상담이 제목 두어 줄로
- *   쪼그라들었다. 지금은 반대로 지난 상담 쪽이 넓다 — 구절은 은하를
- *   골라 훑는 용도라 조금만 보여도 되지만, 대화 목록은 어느 대화인지
- *   알아볼 만큼은 보여야 한다.
- *
- * ★ 구절을 누르면 날아간 뒤에 창이 열린다
- *   사이드바가 닫히고 → 카메라가 그 별로 가고 → 도착하면 구절 창이
- *   뜬다. 목록에서 바로 창을 띄우면 그 별이 하늘 어디에 있는지
- *   영영 모른다.
+ * ★ "구절 목록" 은 HOME·별자리와 같은 줄에 선다
+ *   생김새도 같은 항목이지만, 누르면 주소를 바꾸는 대신 목록 창을
+ *   띄운다 (siteMenuItems 의 action). 목록 자체를 사이드바 안에
+ *   넣어 봤더니 지난 상담이 제목 두어 줄로 쪼그라들었다 — 사이드바는
+ *   좁고 목록에는 넓이가 필요하다.
  *
  * ★ 배경 위에 겹친다. 화면을 밀지 않는다
  *   화면을 오른쪽으로 밀면 캔버스도 함께 밀려 카메라 구도가 틀어진다.
@@ -32,14 +27,13 @@
  *   키보드 사용자는 자기가 어디 있는지 알 수 없게 된다.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ALL_GALAXIES, CENTER_GALAXY, galaxySwatch, getGalaxy } from '../../data/disciples';
+import { getGalaxy } from '../../data/disciples';
 import { PATHS, counselPath, skyPath } from '../../routes/paths';
 import { useAuth } from '../../state/AuthContext';
-import { useVerses } from '../../state/VersesContext';
 import { useThreads } from '../../state/ThreadsContext';
-import { StarKeyboardLayer } from '../galaxy/StarKeyboardLayer';
+import { VerseListDialog } from '../galaxy/VerseListDialog';
 import { MENU_ITEMS } from './siteMenuItems';
 import styles from './SiteMenu.module.css';
 
@@ -52,25 +46,13 @@ export function SiteMenu() {
   /** 지우기 전에 한 번 더 묻는 대화방. null 이면 묻는 중이 아니다. */
   const [confirming, setConfirming] = useState<string | null>(null);
 
-  /*
-   * 목록에서 펼쳐 볼 은하. 기본은 중심이다.
-   *
-   * ★ 여닫을 때마다 되돌리지 않는다.
-   *   사이드바는 자주 여닫는다. 매번 중심 은하로 돌아가면, 요한의
-   *   구절을 훑다 잠깐 닫았을 때 자리를 다시 찾아야 한다.
-   */
-  const [openGalaxyId, setOpenGalaxyId] = useState(CENTER_GALAXY.id);
+  /** 구절 목록 창이 떠 있는가. 사이드바와는 따로 산다. */
+  const [versesOpen, setVersesOpen] = useState(false);
 
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
   const { user } = useAuth();
   const { threads, loading, refresh, remove } = useThreads();
-  const { byGalaxy } = useVerses();
-
-  const openGalaxyStars = useMemo(
-    () => byGalaxy.get(openGalaxyId) ?? [],
-    [byGalaxy, openGalaxyId],
-  );
 
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -134,14 +116,15 @@ export function SiteMenu() {
   };
 
   /*
-   * 목록에서 구절을 고르면 사이드바를 닫고 그 별로 날아간다.
+   * 목록에서 구절을 고르면 창을 닫고 그 별로 날아간다.
    * 도착하면 구절 창이 열린다 (skyPath 의 travel 플래그 → useStarJourney).
    *
-   * ★ 사이드바를 먼저 닫는다.
-   *   카메라가 1.6초 동안 날아가는데 사이드바가 덮고 있으면 비행이
-   *   안 보인다. 이 서비스에서 그 1.6초는 연출이지 대기가 아니다.
+   * ★ 창을 먼저 닫는다.
+   *   카메라가 1.6초 동안 날아가는데 창이 덮고 있으면 비행이 안 보인다.
+   *   이 서비스에서 그 1.6초는 연출이지 대기가 아니다.
    */
   const openStar = (starId: string) => {
+    setVersesOpen(false);
     close();
     navigate(skyPath(starId, { travel: true }));
   };
@@ -183,6 +166,30 @@ export function SiteMenu() {
             <nav className={styles.top} aria-label="주요 메뉴">
               <ul className={styles.list}>
                 {MENU_ITEMS.filter((item) => item.id !== 'settings').map((item) => {
+                  /*
+                    ★ 화면을 옮기지 않는 항목.
+                      HOME·별자리와 같은 생김새로 서지만, 주소를 바꾸는
+                      대신 지금 화면 위에 창을 띄운다. 별자리를 보다가
+                      목록을 열었을 때 하늘이 그대로 있어야 "찾아본다" 는
+                      감각이 유지된다.
+                  */
+                  if (item.action === 'verses') {
+                    return (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          className={styles.item}
+                          onClick={() => {
+                            close();
+                            setVersesOpen(true);
+                          }}
+                        >
+                          <span className={styles.label}>{item.label}</span>
+                          <span className={styles.hint}>{item.hint}</span>
+                        </button>
+                      </li>
+                    );
+                  }
                   if (!item.to) {
                     return (
                       <li key={item.id} className={styles.soon}>
@@ -211,61 +218,6 @@ export function SiteMenu() {
 
               </ul>
             </nav>
-
-            <section className={styles.verses} aria-label="구절 목록">
-              <p className={styles.sectionTitle}>구절 목록</p>
-
-              {/*
-                은하 단위로 나눠 보여 준다.
-                2,652개를 한 목록에 펼치면 키보드로는 끝까지 갈 수 없고
-                화면도 무거워진다. 하늘에서 은하가 나뉘어 보이는 방식을
-                목록도 그대로 따른다.
-              */}
-              <div className={styles.galaxyTabs} role="tablist" aria-label="은하 선택">
-                {ALL_GALAXIES.map((galaxy) => (
-                  <button
-                    key={galaxy.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={galaxy.id === openGalaxyId}
-                    className={styles.galaxyTab}
-                    onClick={() => setOpenGalaxyId(galaxy.id)}
-                  >
-                    <span
-                      className={styles.tabSwatch}
-                      style={{ backgroundColor: galaxySwatch(galaxy) }}
-                      aria-hidden="true"
-                    />
-                    {galaxy.name}
-                    <span className={styles.tabCount}>
-                      {byGalaxy.get(galaxy.id)?.length ?? 0}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              {openGalaxyStars.length === 0 ? (
-                <p className={styles.empty}>이 은하에는 아직 구절이 없습니다.</p>
-              ) : (
-                /*
-                  ★ 단순 목록이 아니라 StarKeyboardLayer 를 그대로 쓴다.
-                    방향키 순회와 roving tabindex 가 여기 들어 있다.
-                    한 번 <ul> 로 바꿨다가 되돌렸다 — 목록이 이사한다고
-                    접근성이 이사에서 빠지면 안 된다.
-
-                  ★ columns={1} 이다.
-                    사이드바는 좁아서 한 줄에 하나씩 선다. 3 으로 두면
-                    ↓ 키가 세 칸씩 건너뛰어 화면과 손이 어긋난다.
-                */
-                <StarKeyboardLayer
-                  stars={openGalaxyStars}
-                  activeId={null}
-                  columns={1}
-                  onHover={() => {}}
-                  onActivate={(star) => openStar(star.id)}
-                />
-              )}
-            </section>
 
             <section className={styles.threads} aria-label="지난 상담">
               <p className={styles.sectionTitle}>지난 상담</p>
@@ -372,6 +324,16 @@ export function SiteMenu() {
         </>
       )}
 
+      {/*
+        ★ 사이드바 바깥에 둔다.
+          안에 두면 사이드바가 닫힐 때 창도 함께 사라진다. 목록을 보려면
+          사이드바를 닫아야 하는데 말이다.
+      */}
+      <VerseListDialog
+        open={versesOpen}
+        onClose={() => setVersesOpen(false)}
+        onPick={openStar}
+      />
     </>
   );
 }

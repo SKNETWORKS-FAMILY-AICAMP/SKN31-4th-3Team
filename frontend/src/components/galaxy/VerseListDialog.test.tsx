@@ -1,30 +1,30 @@
 /*
- * components/common/SiteMenuVerses.test.tsx
+ * components/galaxy/VerseListDialog.test.tsx
  * ───────────────────────────────────────────────────────────────────────
- * 검증 기준: 사이드바의 구절 목록에 키보드로 끝까지 도달할 수 있는가.
+ * 검증 기준: 구절 목록 창에 키보드로 끝까지 도달할 수 있는가.
  *
  * ★ 이 테스트들은 SkyRoute.test.tsx 에서 왔다.
- *   목록은 하늘 위 판에서 사이드바로 옮겨졌다. 옮기는 동안 한 번은
- *   단순 <ul> 로 바꿨는데, 그러면 방향키 순회와 roving tabindex 가
- *   사라진다. 기능이 이사한다고 접근성이 이사에서 빠지면 안 되므로
- *   StarKeyboardLayer 를 그대로 데려왔고, 이 파일이 그걸 지킨다.
+ *   목록은 자리를 옮겨 다녔다 — 하늘 위 판 → 사이드바 안 → 별도 창.
+ *   옮기는 동안 한 번은 단순 <ul> 로 바꿨는데, 그러면 방향키 순회와
+ *   roving tabindex 가 사라진다. 기능이 이사한다고 접근성이 이사에서
+ *   빠지면 안 되므로 StarKeyboardLayer 를 그대로 데려왔고, 이 파일이
+ *   그걸 지킨다.
  *
- * ★ 사이드바는 좁아서 1열이다 (columns=1).
- *   ↓ 가 곧 다음 구절이다.
+ * ★ 창은 넓어서 3열이다 (columns=3).
  */
 
 import { describe, expect, it } from 'vitest';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { SiteMenu } from './SiteMenu';
+import { SiteMenu } from '../common/SiteMenu';
 import { PATHS } from '../../routes/paths';
 import { AuthProvider } from '../../state/AuthContext';
 import { ThreadsProvider } from '../../state/ThreadsContext';
 import { CENTER_GALAXY } from '../../data/disciples';
 import { getVerseStarsByGalaxy } from '../../data/verses';
 
-/** 사이드바를 열면 기본으로 펼쳐지는 은하 */
+/** 창을 열면 기본으로 펼쳐지는 은하 */
 const DEFAULT_STARS = getVerseStarsByGalaxy(CENTER_GALAXY.id);
 
 function renderMenu() {
@@ -43,8 +43,15 @@ function renderMenu() {
   );
 }
 
+/**
+ * 사이드바를 열고 거기서 구절 목록 창을 띄운다.
+ *
+ * ★ "구절 목록" 은 HOME·별자리와 같은 줄에 선 메뉴 항목이다.
+ *   다른 항목은 주소를 바꾸지만 이것만 창을 띄운다.
+ */
 async function openMenu(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: '메뉴 열기' }));
+  await user.click(screen.getByRole('button', { name: /구절 목록/ }));
 }
 
 /**
@@ -56,7 +63,7 @@ function focusOption(el: HTMLElement) {
   act(() => el.focus());
 }
 
-describe('사이드바 구절 목록', () => {
+describe('구절 목록 창', () => {
   it('열면 중심 은하의 별이 모두 노출된다', async () => {
     const user = userEvent.setup();
     renderMenu();
@@ -70,8 +77,8 @@ describe('사이드바 구절 목록', () => {
     renderMenu();
     await openMenu(user);
 
-    const verses = screen.getByRole('region', { name: '구절 목록' });
-    expect(within(verses).getAllByRole('tab')).toHaveLength(13);
+    const dialog = screen.getByRole('dialog', { name: '구절 목록' });
+    expect(within(dialog).getAllByRole('tab')).toHaveLength(13);
   });
 
   it('다른 은하를 고르면 그 은하의 별로 바뀐다', async () => {
@@ -80,8 +87,8 @@ describe('사이드바 구절 목록', () => {
     await openMenu(user);
 
     const before = screen.getAllByRole('option').map((o) => o.id);
-    const verses = screen.getByRole('region', { name: '구절 목록' });
-    await user.click(within(verses).getByRole('tab', { name: /베드로/ }));
+    const dialog = screen.getByRole('dialog', { name: '구절 목록' });
+    await user.click(within(dialog).getByRole('tab', { name: /베드로/ }));
     const after = screen.getAllByRole('option').map((o) => o.id);
 
     expect(after).not.toEqual(before);
@@ -89,7 +96,7 @@ describe('사이드바 구절 목록', () => {
   });
 });
 
-describe('사이드바 구절 목록 — 키보드', () => {
+describe('구절 목록 창 — 키보드', () => {
   it('roving tabindex: 탭 스톱이 목록 전체에 하나뿐이다', async () => {
     const user = userEvent.setup();
     renderMenu();
@@ -101,8 +108,7 @@ describe('사이드바 구절 목록 — 키보드', () => {
     expect(tabbable).toHaveLength(1);
   });
 
-  it('↓↑ 로 한 칸씩 이동한다', async () => {
-    // ★ 사이드바는 1열이므로 ↓ 가 바로 다음 구절이다.
+  it('←→ 로 한 칸씩, ↓ 로 한 줄씩 이동한다', async () => {
     const user = userEvent.setup();
     renderMenu();
     await openMenu(user);
@@ -110,11 +116,15 @@ describe('사이드바 구절 목록 — 키보드', () => {
     const options = screen.getAllByRole('option');
     focusOption(options[0]);
 
-    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{ArrowRight}');
     expect(document.activeElement).toBe(options[1]);
 
-    await user.keyboard('{ArrowUp}');
+    await user.keyboard('{ArrowLeft}');
     expect(document.activeElement).toBe(options[0]);
+
+    // 3열이므로 한 줄 아래는 세 칸 뒤다.
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(options[3]);
   });
 
   it('Home/End 로 처음과 끝으로 간다', async () => {
@@ -148,12 +158,12 @@ describe('사이드바 구절 목록 — 키보드', () => {
   });
 });
 
-describe('사이드바 구절 목록 — 고르면', () => {
-  it('사이드바가 닫히고 그 별로 날아간다', async () => {
+describe('구절 목록 창 — 고르면', () => {
+  it('창이 닫히고 그 별로 날아간다', async () => {
     /*
      * ★ 닫히는 것이 먼저다.
-     *   카메라가 1.6초 동안 날아가는데 사이드바가 덮고 있으면 비행이
-     *   안 보인다. 도착하면 구절 창이 열린다.
+     *   카메라가 1.6초 동안 날아가는데 창이 덮고 있으면 비행이 안 보인다.
+     *   도착하면 구절 상세가 열린다.
      */
     const user = userEvent.setup();
     renderMenu();
