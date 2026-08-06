@@ -7,13 +7,16 @@
  *   가운데 구절 목록 · 지난 상담
  *   아래  톱니바퀴(환경설정)와 계정
  *
- * ★ 구절 목록이 왜 여기 있는가
- *   예전에는 별자리 화면 위에 판으로 떠 있었다. 그 화면의 주인공은
- *   하늘인데 판이 그 위를 덮었고, 오른쪽 MBTI 레일과 자리를 다투느라
- *   좁은 화면에서 글자가 포개졌다.
+ * ★ 두 칸이 자리를 나눠 쓴다
+ *   한때 구절 목록에 자리를 많이 줬더니 지난 상담이 제목 두어 줄로
+ *   쪼그라들었다. 지금은 반대로 지난 상담 쪽이 넓다 — 구절은 은하를
+ *   골라 훑는 용도라 조금만 보여도 되지만, 대화 목록은 어느 대화인지
+ *   알아볼 만큼은 보여야 한다.
  *
- *   "찾아갈 곳" 이라는 점에서 구절 목록과 지난 상담은 같은 성격이다.
- *   한자리에 모으면 화면은 하늘만 보여 주면 된다.
+ * ★ 구절을 누르면 날아간 뒤에 창이 열린다
+ *   사이드바가 닫히고 → 카메라가 그 별로 가고 → 도착하면 구절 창이
+ *   뜬다. 목록에서 바로 창을 띄우면 그 별이 하늘 어디에 있는지
+ *   영영 모른다.
  *
  * ★ 배경 위에 겹친다. 화면을 밀지 않는다
  *   화면을 오른쪽으로 밀면 캔버스도 함께 밀려 카메라 구도가 틀어진다.
@@ -34,8 +37,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ALL_GALAXIES, CENTER_GALAXY, galaxySwatch, getGalaxy } from '../../data/disciples';
 import { PATHS, counselPath, skyPath } from '../../routes/paths';
 import { useAuth } from '../../state/AuthContext';
-import { useThreads } from '../../state/ThreadsContext';
 import { useVerses } from '../../state/VersesContext';
+import { useThreads } from '../../state/ThreadsContext';
 import { StarKeyboardLayer } from '../galaxy/StarKeyboardLayer';
 import { MENU_ITEMS } from './siteMenuItems';
 import styles from './SiteMenu.module.css';
@@ -52,7 +55,7 @@ export function SiteMenu() {
   /*
    * 목록에서 펼쳐 볼 은하. 기본은 중심이다.
    *
-   * ★ 열 때마다 되돌리지 않는다.
+   * ★ 여닫을 때마다 되돌리지 않는다.
    *   사이드바는 자주 여닫는다. 매번 중심 은하로 돌아가면, 요한의
    *   구절을 훑다 잠깐 닫았을 때 자리를 다시 찾아야 한다.
    */
@@ -132,10 +135,11 @@ export function SiteMenu() {
 
   /*
    * 목록에서 구절을 고르면 사이드바를 닫고 그 별로 날아간다.
+   * 도착하면 구절 창이 열린다 (skyPath 의 travel 플래그 → useStarJourney).
    *
    * ★ 사이드바를 먼저 닫는다.
-   *   카메라가 1.6초 동안 날아가는데 사이드바가 그 위를 덮고 있으면
-   *   비행이 안 보인다. 이 서비스에서 그 1.6초는 연출이지 대기가 아니다.
+   *   카메라가 1.6초 동안 날아가는데 사이드바가 덮고 있으면 비행이
+   *   안 보인다. 이 서비스에서 그 1.6초는 연출이지 대기가 아니다.
    */
   const openStar = (starId: string) => {
     close();
@@ -204,6 +208,7 @@ export function SiteMenu() {
                     </li>
                   );
                 })}
+
               </ul>
             </nav>
 
@@ -245,8 +250,8 @@ export function SiteMenu() {
                 /*
                   ★ 단순 목록이 아니라 StarKeyboardLayer 를 그대로 쓴다.
                     방향키 순회와 roving tabindex 가 여기 들어 있다.
-                    옮기면서 <ul> 로 바꿨다가 되돌렸다 — 목록이 이사한다고
-                    접근성이 함께 이사에서 빠지면 안 된다.
+                    한 번 <ul> 로 바꿨다가 되돌렸다 — 목록이 이사한다고
+                    접근성이 이사에서 빠지면 안 된다.
 
                   ★ columns={1} 이다.
                     사이드바는 좁아서 한 줄에 하나씩 선다. 3 으로 두면
@@ -366,6 +371,7 @@ export function SiteMenu() {
           </div>
         </>
       )}
+
     </>
   );
 }
