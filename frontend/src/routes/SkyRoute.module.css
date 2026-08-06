@@ -10,14 +10,7 @@
   flex-direction: column;
   padding: var(--header-space) clamp(var(--sp-4), 5vw, var(--sp-8)) var(--sp-6);
   padding-bottom: calc(var(--sp-6) + var(--safe-bottom));
-  /*
-   * ★ 오른쪽 MBTI 레일 자리를 비워 둔다.
-   *   레일은 position: fixed 라 흐름에 안 잡힌다. 이 한 줄이 없으면
-   *   가운데 정렬된 안내 문구가 레일 밑으로 파고들어 글자가 포개진다.
-   *   레일을 감추는 구간에서는 --rail-w 가 0 이 되어 자동으로 풀린다.
-   */
-  padding-right: calc(clamp(var(--sp-4), 5vw, var(--sp-8)) + var(--rail-w));
-  /* 목록이 닫혀 있을 때 캔버스를 누를 수 있어야 한다 */
+  /* 캔버스를 누를 수 있어야 한다 */
   pointer-events: none;
 }
 

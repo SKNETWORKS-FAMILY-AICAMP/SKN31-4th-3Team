@@ -144,12 +144,26 @@
   opacity: 0.4;
 }
 
-/* ── 가운데: 지난 상담 ────────────────────────────────────────── */
+/* ── 가운데: 구절 목록 · 지난 상담 ────────────────────────────── */
 
 /*
- * ★ 여기만 스크롤한다.
- *   대화가 쌓여도 위의 메뉴와 아래의 톱니는 늘 같은 자리에 있어야 한다.
+ * ★ 가운데 두 칸만 늘어나고 스크롤한다.
+ *   위의 메뉴와 아래의 톱니는 늘 같은 자리에 있어야 한다. 목록이
+ *   길어졌다고 계정 버튼이 화면 밖으로 밀려나면, 로그아웃하려고
+ *   스크롤을 내려야 한다.
+ *
+ * ★ 구절 쪽에 자리를 더 준다.
+ *   구절은 은하마다 수십에서 백몇십 개고, 지난 상담은 보통 몇 개다.
+ *   같은 높이로 나누면 한쪽은 늘 비고 한쪽은 늘 좁다.
  */
+.verses {
+  flex: 1.7;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--line-0);
+}
+
 .threads {
   flex: 1;
   min-height: 0;
@@ -180,6 +194,104 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* ── 구절 목록 ────────────────────────────────────────────────── */
+
+/*
+ * 은하 선택 탭.
+ *
+ * ★ 사이드바는 좁으므로 접히게 둔다.
+ *   가로로 스크롤하게 만들면 13개 중 뒤쪽 은하가 있는지조차 모른다.
+ *   두세 줄로 접히는 편이 전부 보인다.
+ */
+.galaxyTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-3) var(--sp-3);
+}
+
+.galaxyTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px var(--sp-2);
+  font-size: 0.6875rem;
+  color: var(--ink-2);
+  border: 1px solid var(--line-0);
+  border-radius: var(--radius-pill);
+  background: var(--bg-1);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.galaxyTab:hover { border-color: var(--line-2); color: var(--ink-1); }
+
+.galaxyTab[aria-selected='true'] {
+  border-color: var(--light-silver);
+  color: var(--light-warm);
+  background: var(--bg-2);
+}
+
+.tabSwatch {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.tabCount {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.verseList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.verseItem {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.verseItem:hover { background: var(--bg-2); }
+
+.verseRef {
+  font-size: var(--fs-caption);
+  letter-spacing: 0.04em;
+  color: var(--ink-1);
+}
+
+/*
+ * 요약은 두 줄까지.
+ *
+ * ★ 자르지 않으면 한 구절이 목록 절반을 차지한다.
+ *   훑어보는 목록에서는 "무엇에 관한 구절인가" 만 보이면 되고,
+ *   본문은 눌러서 들어간 곳에 있다.
+ */
+.verseText {
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-3);
+  word-break: keep-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .thread {

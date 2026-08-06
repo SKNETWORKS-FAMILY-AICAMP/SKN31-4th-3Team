@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SiteMenu } from './SiteMenu';
@@ -189,7 +189,14 @@ describe('지난 상담', () => {
     await openMenu(user);
 
     expect(await screen.findByText('요즘 너무 불안해요')).toBeInTheDocument();
-    expect(screen.getByText('베드로')).toBeInTheDocument();
+    /*
+     * ★ 지난 상담 칸 안에서만 찾는다.
+     *   구절 목록이 같은 사이드바로 들어오면서 은하 이름이 탭으로도
+     *   뜬다. 화면 전체에서 "베드로" 를 찾으면 둘이 잡혀 실패한다 —
+     *   코드가 깨진 게 아니라 질문이 넓었던 것이다.
+     */
+    const threads = screen.getByRole('region', { name: '지난 상담' });
+    expect(within(threads).getByText('베드로')).toBeInTheDocument();
   });
 
   it('누르면 그 대화로 들어간다', async () => {

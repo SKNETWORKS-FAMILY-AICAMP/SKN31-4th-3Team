@@ -57,11 +57,18 @@ describe('MBTI 레일 레이아웃', () => {
     expect(rail).not.toMatch(/max-height:\s*calc\(100vh/);
   });
 
-  it('두 셸이 모두 레일 자리를 비워 둔다', () => {
+  it('화면을 밀어서 자리를 만들지는 않는다', () => {
+    /*
+     * ★ 한 번 그렇게 했다가 되돌렸다.
+     *   두 셸에 padding-right 로 레일 폭만큼 여백을 줬더니, 겹침은
+     *   사라졌지만 화면 전체가 왼쪽으로 밀렸다. 가운데 정렬된 것들이
+     *   가운데가 아니게 되어 그쪽이 더 이상해 보였다.
+     *
+     *   대신 겹칠 것 자체를 없앴다 — 구절 목록을 사이드바로 옮겨서
+     *   하늘 위에는 안내 문구 한 줄만 남는다.
+     */
     for (const css of [sky, screen]) {
-      // ★ [^)]* 로 쓰면 안 된다 — 값 안에 clamp() 가 들어 있어서
-      //   var(--rail-w) 앞에 닫는 괄호가 먼저 나온다.
-      expect(css).toMatch(/padding-right:[^;]*var\(--rail-w\)/);
+      expect(css).not.toMatch(/padding-right:[^;]*var\(--rail-w\)/);
     }
   });
 });
