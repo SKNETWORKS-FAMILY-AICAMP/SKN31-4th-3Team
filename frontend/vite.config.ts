@@ -46,7 +46,13 @@ export default defineConfig({
      *
      * "테스트 돌리기 전에 .env.local 을 지우세요" 는 규칙이 아니라 함정이다.
      * 커밋되는 파일에 못박아 두면 각자의 환경이 무엇이든 결과가 같다.
+     *
+     * ★ 빈 문자열이 아니라 'mock' 이다.
+     *   빈 문자열은 배포에서 "같은 도메인" 을 뜻한다(docker-compose.prod.yml).
+     *   여기에 '' 를 두면 두 상황이 같은 값이 되고, 한쪽을 고치면 다른 쪽이
+     *   조용히 깨진다. 실제로 배포본이 통째로 mock 으로 돌았다.
+     *   services/RepositoryProvider.tsx 의 MOCK_BACKEND 와 같은 문자열이다.
      */
-    env: { VITE_API_BASE_URL: '' },
+    env: { VITE_API_BASE_URL: 'mock' },
   },
 });

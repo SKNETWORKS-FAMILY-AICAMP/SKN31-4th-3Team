@@ -38,3 +38,11 @@ CLAUDE.md
 # 임베딩 벤치마크가 만드는 것들 (다시 만들 수 있고, 크다)
 server/.embed-cache/
 server/bench*.json
+
+# DB 덤프 — 150MB 가 넘어 GitHub 이 거부한다(100MB 제한).
+# 로컬에서 만들어 scp 로 옮기는 물건이지 저장소에 남길 것이 아니다.
+*.dump
+*.sql.gz
+
+# 배포 환경변수 예시는 .env.* 규칙에 걸려 있어서 따로 풀어 준다.
+!.env.prod.example
