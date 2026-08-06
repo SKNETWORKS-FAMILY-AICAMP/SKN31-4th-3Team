@@ -4,6 +4,8 @@ from rest_framework import serializers
 
 from llm_core.prompts import opening_line
 
+from scripture.models import Verse
+
 from .models import ChatMessage, ChatSession
 
 
@@ -18,7 +20,24 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 
 class ChatSessionSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source="user.email")
-    seed_verse_id = serializers.CharField(source="seed_verse.id", read_only=True, default=None)
+
+    #: 이 대화를 시작시킨 구절.
+    #:
+    #: ★ 쓰기가 가능해야 한다.
+    #:   read_only 로 두었더니 화면이 구절을 보낼 방법이 없었고, 그래서
+    #:   seed_verse 가 언제나 비어 있었다. 그 값이 비면 상담 프롬프트에
+    #:   구절도 그래프 맥락도 안 들어간다 — 화면은 멀쩡하고 답만 밋밋해진다.
+    #:
+    #: ★ 없는 구절 id 가 와도 대화는 열린다.
+    #:   구절은 대화를 풍부하게 하는 재료이지 대화의 조건이 아니다.
+    #:   404 를 내면 화면이 상담에 못 들어간다.
+    seed_verse_id = serializers.PrimaryKeyRelatedField(
+        source="seed_verse",
+        queryset=Verse.objects.all(),
+        required=False,
+        allow_null=True,
+        default=None,
+    )
 
     #: 이 페르소나의 첫 인사.
     #:
@@ -73,7 +92,6 @@ class ChatSessionSerializer(serializers.ModelSerializer):
             "user",
             "created_at",
             "updated_at",
-            "seed_verse_id",
             "opening",
             "last_message",
             "persona_reason",

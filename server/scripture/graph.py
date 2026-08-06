@@ -370,6 +370,81 @@ def verse_context(verse_id: str, theme: str = "") -> VerseContext:
 
 
 @dataclass
+class Witness:
+    """어떤 감정을 지나간 인물 하나."""
+
+    person: str = ""
+    #: 그가 겪은 상태 이름
+    felt: list[str] = field(default_factory=list)
+    #: 그가 도달한 상태 이름
+    became: list[str] = field(default_factory=list)
+
+
+def theme_witnesses(theme: str, limit: int = 3) -> list[Witness]:
+    """
+    이 감정을 지나간 인물들.
+
+    ★ 구절이 없는 대화를 위해 있다.
+      홈에서 질문만 던지고 상담으로 들어오면 씨앗 구절이 없다.
+      그 경우에도 그래프가 줄 것이 있다 — "이 감정을 지나간 사람이
+      성경에 있다" 는 사실이다. 그게 이 서비스가 하려는 말이기도 하다.
+
+    ★ OVERCAME 만 본다.
+      겪은 사람은 너무 많아서 아무나 나온다. 지나간 사람은 드물고,
+      드물기 때문에 이야기가 된다.
+    """
+    if not theme or not enabled():
+        return []
+
+    try:
+        rows = query(
+            """
+            MATCH (p:Person)-[:OVERCAME]->(e:EmotionOrState {theme: $theme})
+            WHERE COUNT { (p)<-[:MENTIONS]-(:Verse) } <= $hub_limit
+            OPTIONAL MATCH (p)-[:EXPERIENCED]->(f:EmotionOrState {theme: $theme})
+            RETURN p.name AS person,
+                   collect(DISTINCT f.name)[0..2] AS felt,
+                   collect(DISTINCT e.name)[0..2] AS became
+            LIMIT $limit
+            """,
+            theme=theme,
+            hub_limit=HUB_MENTION_LIMIT,
+            limit=limit,
+        )
+        return [
+            Witness(
+                person=row.get("person") or "",
+                felt=[n for n in (row.get("felt") or []) if n],
+                became=[n for n in (row.get("became") or []) if n],
+            )
+            for row in rows
+            if row.get("person")
+        ]
+    except Exception as exc:
+        logger.warning("증인 조회 실패 — 없이 진행합니다: %s", exc)
+        return []
+
+
+def witnesses_prompt(witnesses: list[Witness]) -> str:
+    """
+    증인 목록을 프롬프트 한 덩어리로.
+
+    ★ 여기서도 해석은 안 붙인다.
+      "그러니 당신도 이겨 낼 수 있습니다" 를 우리가 쓰면 그건 그래프가
+      아니라 우리 문장이다. 누구가 무엇을 지나갔다는 사실만 준다.
+    """
+    if not witnesses:
+        return ""
+
+    lines = ["[이 감정을 지나간 사람들]"]
+    for w in witnesses:
+        felt = ", ".join(w.felt) or "같은 자리"
+        became = ", ".join(w.became)
+        lines.append(f"{w.person}: {felt} → {became}" if became else f"{w.person}: {felt}")
+    return "\n".join(lines)
+
+
+@dataclass
 class Schema:
     """탐침이 읽어 온 그래프의 생김새."""
 

@@ -30,27 +30,58 @@ def for_session(session, question: str = "") -> str | None:
     """
     세션 하나의 바탕 문맥을 만든다.
 
+    ★ 씨앗 구절이 없어도 빈손으로 돌아가지 않는다.
+      처음에는 `seed_verse` 가 없으면 바로 None 을 돌려줬다. 그런데
+      홈에서 질문만 던지고 들어온 대화에는 씨앗 구절이 없다 — 그게
+      가장 흔한 경로다. 결과적으로 그래프가 대화에 한 번도 안 들어갔다.
+
+      구절이 없으면 질문의 감정으로 인물을 찾는다. 그래프가 줄 수 있는
+      것은 구절만이 아니다.
+
     :param session: ChatSession
     :param question: 사용자의 이번 발화. 감정 주제를 뽑는 데 쓴다.
     :return: build_system_prompt(verse_context=...) 에 넣을 문자열. 없으면 None.
     """
-    verse = getattr(session, "seed_verse", None)
-    if verse is None:
-        return None
-
+    text = question or getattr(session, "seed_question", "") or ""
     parts: list[str] = []
 
-    ref = f"{verse.book_code} {verse.chapter}:{verse.verse}"
-    body = (verse.summary or "").strip()
-    if len(body) > CONTENT_LIMIT:
-        body = body[:CONTENT_LIMIT].rstrip() + "…"
-    parts.append(f"{ref}\n{body}" if body else ref)
+    verse = getattr(session, "seed_verse", None)
+    if verse is not None:
+        ref = f"{verse.book_code} {verse.chapter}:{verse.verse}"
+        body = (verse.summary or "").strip()
+        if len(body) > CONTENT_LIMIT:
+            body = body[:CONTENT_LIMIT].rstrip() + "…"
+        parts.append(f"{ref}\n{body}" if body else ref)
 
-    graph_block = _graph_block(verse, question or session.seed_question or "")
-    if graph_block:
-        parts.append(graph_block)
+        graph_block = _graph_block(verse, text)
+        if graph_block:
+            parts.append(graph_block)
 
-    return "\n\n".join(parts)
+    witnesses = _witnesses_block(text)
+    if witnesses:
+        parts.append(witnesses)
+
+    return "\n\n".join(parts) if parts else None
+
+
+def _witnesses_block(question: str) -> str:
+    """질문의 감정을 지나간 인물들. 구절이 없는 대화의 유일한 그래프 재료다."""
+    if not question:
+        return ""
+    try:
+        from scripture import graph
+        from scripture.intents import match_intent
+
+        if not graph.enabled():
+            return ""
+
+        theme = match_intent(question)
+        if not theme:
+            return ""
+        return graph.witnesses_prompt(graph.theme_witnesses(theme))
+    except Exception as exc:
+        logger.warning("증인 조회 실패 — 없이 진행합니다: %s", exc)
+        return ""
 
 
 def _graph_block(verse, question: str) -> str:

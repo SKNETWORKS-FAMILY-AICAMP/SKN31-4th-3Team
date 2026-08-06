@@ -335,10 +335,21 @@ export const httpCounselRepository: CounselRepository = {
      * 서버에는 대화방만 만든다.
      * (예전 /chat/threads/ 는 없어졌다 — 세션 생성으로 통일됐다)
      */
+    /*
+     * ★ 씨앗 구절과 질문을 함께 보낸다.
+     *   예전에는 제목과 인물만 보냈다. 서버는 그 둘로 대화방을 열 수
+     *   있으므로 화면상 아무 문제가 없었는데, 상담 프롬프트가 쓰는
+     *   구절 문맥이 통째로 비어 있었다 — 답이 밋밋한데 원인이 안 보였다.
+     */
     const dto = await api<SessionDto>('/api/v1/chat/sessions/', {
       method: 'POST',
       auth: true,
-      body: { title: titleFor(seed), persona_id: personaFor(seed) },
+      body: {
+        title: titleFor(seed),
+        persona_id: personaFor(seed),
+        seed_verse_id: seed.verseId ?? null,
+        seed_question: seed.question ?? '',
+      },
     });
 
     return {
