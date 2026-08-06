@@ -23,6 +23,7 @@ from drf_spectacular.utils import extend_schema
 from llm_core.matching import recommend
 from llm_core.negotiation import EventStreamRenderer, IgnoreClientContentNegotiation
 from scripture.intents import match_intent, theme_labels
+from scripture.models import Verse
 
 
 class ChatSessionListCreateView(generics.ListCreateAPIView):
@@ -86,7 +87,18 @@ class ChatSessionListCreateView(generics.ListCreateAPIView):
             persona_id = match.galaxy_id
             reason = match.reason
 
-        serializer.save(user=user, persona_id=persona_id, persona_reason=reason)
+        # ★ 가리킬 수 있는 구절이면 외래키도 함께 건다.
+        #   큐레이션 702절이면 걸리고, 성경전서에서 온 구절이면 안 걸린다.
+        #   못 걸어도 seed_verse_ref 는 남으므로 프롬프트 문맥은 살아 있다.
+        ref = (serializer.validated_data.get("seed_verse_ref") or "").strip()
+        verse = Verse.objects.filter(pk=ref).first() if ref else None
+
+        serializer.save(
+            user=user,
+            persona_id=persona_id,
+            persona_reason=reason,
+            seed_verse=verse,
+        )
 
 
 class ChatSessionDetailView(generics.RetrieveDestroyAPIView):

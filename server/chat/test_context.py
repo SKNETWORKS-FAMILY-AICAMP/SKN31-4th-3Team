@@ -56,13 +56,28 @@ class SeedVerseWritableTests(TestCase):
             data={"title": "대화", "persona_id": "peter", "seed_verse_id": "요.3.16"}
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
-        self.assertEqual(serializer.validated_data["seed_verse"], self.verse)
+        self.assertEqual(serializer.validated_data["seed_verse_ref"], "요.3.16")
 
     def test_구절이_없어도_대화방은_열린다(self):
         from chat.serializers import ChatSessionSerializer
 
         serializer = ChatSessionSerializer(data={"title": "대화", "persona_id": "peter"})
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_큐레이션에_없는_구절도_거부하지_않는다(self):
+        """
+        ★ 실제로 터졌던 버그다.
+          화면의 별 2,652개 중 1,950개는 BibleVerse 라 Verse 표에 없다.
+          외래키로 검증하니 "유효하지 않은 pk 창.6.10" 이 뜨고
+          별 넷 중 셋이 상담에 못 들어갔다.
+        """
+        from chat.serializers import ChatSessionSerializer
+
+        serializer = ChatSessionSerializer(
+            data={"title": "대화", "persona_id": "peter", "seed_verse_id": "창.6.10"}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["seed_verse_ref"], "창.6.10")
 
 
 @override_settings(NEO4J_URI="", NEO4J_USER="", NEO4J_PASSWORD="")

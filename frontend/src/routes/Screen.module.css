@@ -8,6 +8,13 @@
   flex-direction: column;
   padding: var(--header-space) clamp(var(--sp-4), 5vw, var(--sp-8)) var(--sp-6);
   padding-bottom: calc(var(--sp-6) + var(--safe-bottom));
+  /*
+   * ★ 오른쪽 MBTI 레일 자리를 비워 둔다.
+   *   레일은 position: fixed 라 흐름에 안 잡힌다. 그 자리를 모르고
+   *   가운데 정렬하면 화면이 좁아질 때 글자가 포개진다.
+   *   레일이 없는 구간에서는 --rail-w 가 0 이라 자동으로 풀린다.
+   */
+  padding-right: calc(clamp(var(--sp-4), 5vw, var(--sp-8)) + var(--rail-w));
 }
 
 .centered {

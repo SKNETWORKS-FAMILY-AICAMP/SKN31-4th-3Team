@@ -45,7 +45,7 @@ def for_session(session, question: str = "") -> str | None:
     text = question or getattr(session, "seed_question", "") or ""
     parts: list[str] = []
 
-    verse = getattr(session, "seed_verse", None)
+    verse = _resolve_verse(session)
     if verse is not None:
         ref = f"{verse.book_code} {verse.chapter}:{verse.verse}"
         body = (verse.summary or "").strip()
@@ -62,6 +62,47 @@ def for_session(session, question: str = "") -> str | None:
         parts.append(witnesses)
 
     return "\n\n".join(parts) if parts else None
+
+
+class _Seed:
+    """두 표의 구절을 프롬프트가 쓰는 한 가지 모양으로 맞춘다."""
+
+    def __init__(self, book_code: str, chapter: int, verse: int, summary: str):
+        self.book_code = book_code
+        self.chapter = chapter
+        self.verse = verse
+        self.summary = summary
+
+
+def _resolve_verse(session):
+    """
+    씨앗 구절을 찾는다. 큐레이션 표를 먼저, 없으면 성경전서를.
+
+    ★ 두 표를 다 봐야 한다.
+      화면의 별 2,652개 중 큐레이션 Verse 는 702개뿐이다. 나머지
+      1,950개는 BibleVerse 다. 외래키만 보면 별 넷 중 셋이 문맥 없이
+      대화를 시작한다 — 오류는 안 나고 답만 얕아진다.
+    """
+    verse = getattr(session, "seed_verse", None)
+    if verse is not None:
+        return verse
+
+    ref = (getattr(session, "seed_verse_ref", "") or "").strip()
+    if not ref:
+        return None
+
+    try:
+        from scripture.models import BibleVerse
+
+        row = BibleVerse.objects.filter(pk=ref).only(
+            "book_code", "chapter", "verse", "content"
+        ).first()
+        if row is None:
+            return None
+        return _Seed(row.book_code, row.chapter, row.verse, row.content or "")
+    except Exception as exc:
+        logger.warning("씨앗 구절을 못 읽었습니다 — 없이 진행합니다: %s", exc)
+        return None
 
 
 def _witnesses_block(question: str) -> str:

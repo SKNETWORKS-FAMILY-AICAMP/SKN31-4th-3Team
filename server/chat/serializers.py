@@ -28,16 +28,25 @@ class ChatSessionSerializer(serializers.ModelSerializer):
     #:   seed_verse 가 언제나 비어 있었다. 그 값이 비면 상담 프롬프트에
     #:   구절도 그래프 맥락도 안 들어간다 — 화면은 멀쩡하고 답만 밋밋해진다.
     #:
-    #: ★ 없는 구절 id 가 와도 대화는 열린다.
+    #: ★ 외래키로 검증하지 않는다.
+    #:   PrimaryKeyRelatedField(queryset=Verse.objects.all()) 로 뒀더니
+    #:   캔버스의 BibleVerse 구절(1,950개)이 전부 400 을 받았다.
+    #:   "유효하지 않은 pk 창.6.10" — 별 넷 중 셋이 상담에 못 들어갔다.
+    #:
     #:   구절은 대화를 풍부하게 하는 재료이지 대화의 조건이 아니다.
-    #:   404 를 내면 화면이 상담에 못 들어간다.
-    seed_verse_id = serializers.PrimaryKeyRelatedField(
-        source="seed_verse",
-        queryset=Verse.objects.all(),
+    #:   문자열로 받아 그대로 저장하고, 가리킬 수 있는 구절이면
+    #:   외래키도 함께 건다(perform_create). 못 찾아도 대화는 열린다.
+    seed_verse_id = serializers.CharField(
+        source="seed_verse_ref",
         required=False,
+        allow_blank=True,
         allow_null=True,
-        default=None,
+        default="",
     )
+
+    def validate_seed_verse_id(self, value):
+        """None 을 빈 문자열로. 화면이 null 을 보낼 수 있다."""
+        return value or ""
 
     #: 이 페르소나의 첫 인사.
     #:

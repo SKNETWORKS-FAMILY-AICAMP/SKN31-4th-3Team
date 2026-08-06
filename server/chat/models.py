@@ -30,6 +30,20 @@ class ChatSession(models.Model):
         blank=True,
         related_name="threads",
     )
+
+    #: 씨앗 구절의 id 를 문자열 그대로. 예: "창.6.10"
+    #:
+    #: ★ 왜 외래키만으로 부족한가
+    #:   화면의 별 2,652개 중 큐레이션 Verse 는 702개뿐이고, 나머지
+    #:   1,950개는 BibleVerse(성경전서에서 은하당 150개씩 뽑은 것)다.
+    #:   외래키는 Verse 만 가리키므로, 캔버스에서 별 넷 중 셋을 누르면
+    #:   가리킬 대상이 없다. 그렇다고 상담에 못 들어가면 안 된다.
+    #:
+    #:   그래서 문자열은 언제나 남기고, 외래키는 가리킬 수 있을 때만 건다.
+    #:   프롬프트 문맥은 이 문자열로 두 표를 차례로 찾는다
+    #:   (chat/context.py). Neo4j 도 "창 6:10" 같은 문자열이 키라
+    #:   여기서 바로 이어진다.
+    seed_verse_ref = models.CharField(max_length=32, blank=True)
     #: 구절 대신 질문에서 시작했다면 그 질문.
     seed_question = models.CharField(max_length=500, blank=True)
 
