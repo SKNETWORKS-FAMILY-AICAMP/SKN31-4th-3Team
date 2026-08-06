@@ -32,6 +32,20 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # LLM 호출용. 없으면 상담 답변 생성이 실패한다 (서버는 뜬다).
 OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
 
+# Neo4j Aura — 감정·인물·사건 그래프.
+#
+# ★ 비어 있는 것이 정상 상태의 하나다.
+#   값이 없으면 그래프 기능만 꺼지고 검색과 상담은 그대로 돈다.
+#   "그래프가 없으면 서버가 안 뜬다" 로 만들면, 붙이는 날 하루가
+#   아니라 안 붙는 날 전부가 막힌다.
+# ★ 사용자 이름 변수는 두 이름을 다 받는다.
+#   그래프를 적재한 쪽 문서는 NEO4J_USERNAME 으로 적혀 있고 우리
+#   .env.prod.example 은 NEO4J_USER 다. 둘 중 하나만 읽게 두면 값을
+#   넣었는데 인증이 실패하고, 원인이 오타처럼 보인다.
+NEO4J_URI = env('NEO4J_URI', default='')
+NEO4J_USER = env('NEO4J_USER', default='') or env('NEO4J_USERNAME', default='neo4j')
+NEO4J_PASSWORD = env('NEO4J_PASSWORD', default='')
+
 SECRET_KEY = env('SECRET_KEY', default='dev-only-insecure-key-change-me')
 
 # SECURITY WARNING: don't run with debug turned on in production!

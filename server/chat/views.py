@@ -18,6 +18,7 @@ import json
 from django.http import StreamingHttpResponse
 from llm_core.services import generate_llm_response
 from llm_core.services import generate_llm_stream_response
+from .context import for_session as build_verse_context
 from drf_spectacular.utils import extend_schema
 from llm_core.matching import recommend
 from llm_core.negotiation import EventStreamRenderer, IgnoreClientContentNegotiation
@@ -162,10 +163,16 @@ class ChatCompletionView(APIView):
         ]
 
         # 5. LLM 호출 — 이 세션의 페르소나로
+        #
+        # ★ 씨앗 구절과 그래프 맥락을 함께 넣는다.
+        #   구절만 넣으면 "이 구절이 무슨 뜻인가" 를 설명하는 답이 나온다.
+        #   그 구절에 등장한 인물이 무엇을 겪고 무엇을 지나갔는지가 있으면
+        #   "그 사람도 여기 있었습니다" 쪽으로 말이 옮겨 간다.
         try:
             ai_response_text = generate_llm_response(
                 messages_history=messages_history,
                 persona_id=session.persona_id or None,
+                verse_context=build_verse_context(session, user_message_text),
             )
         except Exception as e:
             return Response(
@@ -230,6 +237,11 @@ class ChatStreamView(APIView):
             for msg in history_qs
         ]
 
+        # ★ 스트림이 시작되기 전에 만든다.
+        #   제너레이터 안에서 만들면 Neo4j 조회가 첫 조각을 늦춘다.
+        #   사용자에게는 "답이 안 나온다" 로 보이는 구간이다.
+        verse_context = build_verse_context(session, user_message_text)
+
         # 5. SSE 스트림 생성 함수 정의
         def event_stream():
             full_ai_content = ""  # 전체 답변 누적용
@@ -239,6 +251,7 @@ class ChatStreamView(APIView):
                 for chunk in generate_llm_stream_response(
                     messages_history,
                     persona_id=session.persona_id or None,
+                    verse_context=verse_context,
                 ):
                     full_ai_content += chunk
                     # SSE 규격 포맷 전송 ("data: {"content": "..."}\n\n")

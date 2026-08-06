@@ -13,10 +13,11 @@
     - 같은 주제로 사람이 이미 골라 둔 702절이 있다 (theme)
   셋을 가중치로 섞는다. 벡터가 주고, 나머지는 눌러 주는 역할이다.
 
-★ Neo4j 는 나중에 여기 붙는다
-  감정·관계 그래프가 적재되면 `graph_boost` 자리에서 후보에 가중치를
-  더한다. 지금은 그 함수가 빈 dict 를 돌려준다 — 없는 것을 있는 척하지
-  않고, 붙을 자리만 만들어 둔다.
+★ Neo4j 가 여기 붙어 있다
+  `_graph_boost` 가 후보에 가중치를 더한다. 질문의 주제와 같은 감정을
+  겪었거나 이겨 낸 인물이 등장하는 구절을 올린다. 그래프가 없거나
+  Aura 가 죽으면 0 이 되고, 검색은 벡터+주제+성격만으로 돈다 —
+  결과가 조금 덜 좋아질 뿐 화면은 그대로다.
 
 ★ 서버가 없거나 임베딩이 비어도 죽지 않는다
   Postgres 가 아니거나 벡터가 없으면 예전 방식(주제 사전)으로 물러선다.
@@ -113,20 +114,29 @@ def _embed_query(question: str) -> list[float] | None:
     return truncate(vectors[0], dim)
 
 
-def _graph_boost(ids: list[str]) -> dict[str, float]:
+def _graph_boost(ids: list[str], theme: str | None) -> dict[str, float]:
     """
     Neo4j 의 감정·관계 그래프에서 오는 가산점.
 
-    ★ 아직 비어 있다.
-      그래프가 적재되면(#116) 여기서 질문의 감정과 이어지는 구절에
-      가중치를 얹는다. 지금 빈 dict 를 돌려주는 것은 게으름이 아니라,
-      "없는 것을 있는 척하지 않는다" 는 선택이다. 붙는 순간 이 함수
-      하나만 채우면 되고, 부르는 쪽은 바뀌지 않는다.
+    ★ 무엇을 보는가
+      질문의 주제(theme)와 같은 감정을 겪었거나 이겨 낸 인물이 등장하는
+      구절을 올린다. 임베딩은 "말이 비슷한 것" 을 찾고, 여기서는
+      "같은 자리를 지나온 사람이 있는 것" 을 찾는다.
+
+    ★ 실패는 0 이지 예외가 아니다
+      graph.boost 는 Aura 가 죽어도 빈 dict 를 돌려준다. 그래프가
+      없으면 예전과 똑같이 벡터+주제+성격으로만 고른다.
 
     :param ids: 벡터가 건진 후보들의 id
+    :param theme: 질문에서 뽑은 주제 코드. 없으면 그래프를 안 본다.
     :return: id → 가산점 (0 이면 없는 것과 같다)
     """
-    return {}
+    if not theme:
+        return {}
+
+    from . import graph
+
+    return graph.boost(ids, theme)
 
 
 def search(question: str, *, k: int = 3, offset: int = 0, use_tone: bool = True) -> list[Hit]:
@@ -170,7 +180,7 @@ def search(question: str, *, k: int = 3, offset: int = 0, use_tone: bool = True)
     if not rows:
         return []
 
-    boosts = _graph_boost([r[0] for r in rows])
+    boosts = _graph_boost([r[0] for r in rows], theme)
 
     hits: list[Hit] = []
     for vid, book, chapter, verse, content, tone, galaxy_id, similarity in rows:
@@ -194,7 +204,7 @@ def search(question: str, *, k: int = 3, offset: int = 0, use_tone: bool = True)
             score += THEME_BONUS
             signals.append(f"theme:{theme}")
 
-        # 그래프 — 지금은 늘 0 이다
+        # 그래프 — 같은 감정을 겪거나 이겨 낸 인물이 등장하는 구절
         boost = boosts.get(vid, 0.0)
         if boost:
             score += boost
