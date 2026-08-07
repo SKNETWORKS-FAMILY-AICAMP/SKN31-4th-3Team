@@ -552,12 +552,40 @@ class PlannerTests(TestCase):
         self.assertIn("물음표로 끝내지 마십시오", d)
 
     def test_계획이_되받을_말을_집어_준다(self):
-        # "하나를 집어 받으십시오" 는 모델이 고르게 하는 지시다.
-        # 이미 골라 놨으면 고르는 일을 시킬 이유가 없다.
+        # 고르는 일을 모델에게 시키지 않는다. 이미 골라 놨다.
         p = self._plan(state="감정", echo="동생", focus="동생 이야기에 머문다")
         d = context.directive_for(2, plan=p)
-        self.assertIn("'동생' 를 그대로 한 번 받으십시오", d)
+        self.assertIn("'동생'", d)
         self.assertIn("동생 이야기에 머문다", d)
+
+    def test_되받기와_메아리는_다르다(self):
+        """
+        ★ 실제로 이렇게 나왔다.
+          사용자: "어떻게 해결해야 할까요?"
+          답변:   "어떻게 해결해야 할까요? 친구와의 소통이…"
+          들었다는 표시가 아니라 받아쓰기다.
+        """
+        d = context.directive_for(2, plan=self._plan(echo="친구"))
+        self.assertIn("그대로 옮겨 적으며 시작하지 마십시오", d)
+        self.assertIn("첫 문장은 당신의 말이어야 합니다", d)
+
+    def test_지침이_답변으로_새지_않게_한다(self):
+        # ★ "잘 안 될 수도 있다는 것을 함께 이해하며" 가 답변에 그대로 나왔다.
+        #   위에 적어 둔 지침 문장이다.
+        d = context.directive_for(2, plan=self._plan())
+        self.assertIn("지침의 문장을 답변에 옮겨 쓰지 마십시오", d)
+
+    def test_echo_가_문장이면_버린다(self):
+        from chat.planner import _short_echo
+
+        for sentence in ("어떻게 해결해야 할까요", "친구랑 대화가 안 통해요", "너무 지쳤어요"):
+            self.assertEqual(_short_echo(sentence), "", sentence)
+
+    def test_echo_가_명사면_남긴다(self):
+        from chat.planner import _short_echo
+
+        for word in ("친구", "동생", "그 밤", "번아웃"):
+            self.assertEqual(_short_echo(word), word)
 
     def test_마무리_계획에는_아무것도_안_얹는다(self):
         p = self._plan(state="마무리")
@@ -651,3 +679,28 @@ class PlannerTests(TestCase):
         self.assertIsNone(m.text)
         self.assertFalse(m.has_people)
         self.assertFalse(m.has_verse)
+
+    @override_settings(NEO4J_URI="neo4j+s://x", NEO4J_USER="neo4j", NEO4J_PASSWORD="y")
+    def test_계획이_계속_아무것도_필요없다고_해도_바닥은_있다(self):
+        """
+        ★ 실제로 세 턴 내내 인물도 구절도 없이 흘렀다.
+          플래너 프롬프트에 false 로 둘 이유만 적어 놨더니, 모델이
+          시킨 대로 전부 false 를 냈다. 결과는 성경 없는 일반 챗봇이다.
+
+          판단은 계획에 맡기되, 얹을 자리인데 계획이 둘 다 마다하면
+          인물 하나는 올린다.
+        """
+        from scripture import graph
+
+        session = ChatSession.objects.create(
+            user=self.user, seed_question="불안합니다", persona_id="john"
+        )
+        p = self._plan(state="감정", needs_person=False, needs_verse=False)
+        fake = [graph.Witness(person="엘리야", felt=["절망"], became=["회복"])]
+
+        with patch.object(graph, "theme_witnesses", return_value=fake):
+            with patch.object(graph, "enabled", return_value=True):
+                m = context.materials(session, "요즘 너무 불안합니다", turn=2, plan=p)
+
+        self.assertTrue(m.has_people)
+        self.assertIn("엘리야", m.text)

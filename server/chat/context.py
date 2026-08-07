@@ -334,16 +334,33 @@ def directive_for(
     echo = (plan.echo if plan is not None else "").strip()
     if echo:
         blocks.append(
-            f"사용자가 쓴 말 '{echo}' 를 그대로 한 번 받으십시오.\n"
-            "바꿔 말하지 마십시오.\n"
-            "'…라는 말이 떠오르네요' 처럼 앞서 쓴 도입구를 또 쓰지 마십시오."
+            f"'{echo}' — 사용자가 쓴 이 말을 답변 안에서 그대로 쓰십시오.\n"
+            "'힘든 상황', '그런 마음' 처럼 뭉뚱그리지 마십시오."
         )
     else:
         blocks.append(
-            "사용자가 방금 쓴 말 중 하나를 그대로 집어 받으십시오.\n"
-            "'힘든 상황', '그런 마음' 처럼 바꿔 말하지 마십시오.\n"
-            "'…라는 말이 떠오르네요' 처럼 앞서 쓴 도입구를 또 쓰지 마십시오."
+            "사용자가 쓴 명사 하나를 골라 답변 안에서 그대로 쓰십시오.\n"
+            "'힘든 상황', '그런 마음' 처럼 뭉뚱그리지 마십시오."
         )
+
+    # ★ 되받기와 메아리는 다르다.
+    #   "어떻게 해결해야 할까요? 친구와의 소통이…" 처럼 사용자의 문장을
+    #   앞에 그대로 붙이는 답이 나왔다. 그건 들었다는 표시가 아니라
+    #   받아쓰기다.
+    blocks.append(
+        "사용자의 문장을 그대로 옮겨 적으며 시작하지 마십시오.\n"
+        "'…라고 하셨군요', '…라고 하셨네요' 로 시작하지 마십시오.\n"
+        "첫 문장은 당신의 말이어야 합니다.\n"
+        "'…라는 말이 떠오르네요' 처럼 앞서 쓴 도입구를 또 쓰지 마십시오."
+    )
+
+    # ★ 지침은 당신에게만 하는 말이다.
+    #   실제로 "잘 안 될 수도 있다는 것을 함께 이해하며" 가 답변에
+    #   그대로 나왔다. 위에 적어 둔 지침 문장이다.
+    blocks.append(
+        "위 지침의 문장을 답변에 옮겨 쓰지 마십시오.\n"
+        "지침은 당신에게만 하는 말이고, 사용자는 이것을 보지 않습니다."
+    )
 
     out = "[이번 답변 지침]\n" + "\n\n".join(blocks)
 
@@ -408,8 +425,21 @@ def materials(session, question: str = "", turn: int = 1, plan=None) -> Material
     if m.closing or (plan is not None and plan.crisis):
         return m
 
-    want_verse = plan.needs_verse if plan is not None else _material_turn(turn)
-    want_person = plan.needs_person if plan is not None else _material_turn(turn)
+    if plan is None:
+        want_verse = want_person = _material_turn(turn)
+    else:
+        want_verse = plan.needs_verse
+        want_person = plan.needs_person
+
+        # ★ 계획이 계속 "아무것도 필요 없다" 로 나올 수 있다.
+        #   실제로 그랬다. 플래너 프롬프트에 false 로 둘 이유만 잔뜩
+        #   적어 놨더니 세 턴 내내 인물도 구절도 없이 흘렀고,
+        #   결과는 성경 없는 일반 상담 챗봇이었다.
+        #
+        #   판단은 계획에 맡기되, 바닥은 리듬이 받친다. 얹을 자리인데
+        #   계획이 둘 다 마다하면 인물 하나는 올린다.
+        if not (want_verse or want_person) and _material_turn(turn):
+            want_person = True
 
     # ★ 씨앗 구절은 계획과 무관하게 초반에는 남긴다.
     #   구절을 눌러서 들어온 대화다. 그 구절은 인용거리가 아니라

@@ -77,19 +77,32 @@ JSON 하나로만 답하십시오.
   needs_person: 성경 인물 이야기를 꺼낼 자리인가
   needs_verse: 성경 구절을 꺼낼 자리인가
   ask_question: 이번 답변을 질문으로 끝내는 것이 자연스러운가
-  echo: 사용자가 방금 쓴 말 중 그대로 되받을 단어 하나. 없으면 ""
+  echo: 사용자가 방금 쓴 말 중 답변에서 다시 다룰 **명사 하나**.
+        한 단어, 길어도 두 어절입니다. 예: "친구", "동생", "그 밤".
+        문장을 그대로 넣지 마십시오. 없으면 ""
   focus: 이번 답변이 해야 할 일. 한 문장. 사용자가 실제로 한 말을 근거로.
 
-판단 기준
+무엇을 true 로 둘 것인가
+- needs_person 은 사용자가 자기 상황을 한 번 이상 풀어놨고,
+  감정이 분명해졌을 때 true 입니다.
+  "같은 자리를 지난 사람이 있다" 고 말해 줄 만한 자리인지 보십시오.
+- needs_verse 는 위로나 방향이 필요한 자리이고,
+  직전 두 답변에 구절이 없었을 때 true 입니다.
+- 이 서비스는 성경 인물과 구절로 위로하는 상담입니다.
+  둘 다 false 인 답변이 세 번 연속되면 그냥 일반 챗봇이 됩니다.
+  직전 답변들에 인물도 구절도 없었다면, 이번에는 둘 중 하나를 true 로 두십시오.
+
+무엇을 false 로 둘 것인가
 - 같은 재료를 연달아 쓰지 않습니다.
   직전 답변이 인물을 꺼냈으면 이번에는 needs_person 을 false 로 두십시오.
   구절도 같습니다. 매번 꺼내면 인물 명함첩이 됩니다.
 - 물음표로 끝나는 답이 이어지면 상담이 아니라 설문이 됩니다.
-  직전 답변이 질문으로 끝났으면 ask_question 을 false 쪽으로 두십시오.
+  직전 답변이 질문으로 끝났으면 ask_question 을 false 로 두십시오.
 - "마무리" 나 "잡담" 이면 needs_person 과 needs_verse 는 모두 false 입니다.
   끝내려는 사람을 재료로 붙잡지 않습니다.
 - "요청" 이면 되묻지 말고 함께 한 걸음을 놓아야 합니다.
-  ask_question 은 대개 false 입니다.
+  ask_question 은 대개 false 입니다. 다만 인물과 구절은 여기서도 쓸 수 있습니다 —
+  그 사람이 어떻게 했는지가 곧 한 걸음이 되는 경우가 많습니다.
 - "위기" 면 모든 필드를 false 로 두십시오. 지금은 사람으로 응답할 자리입니다.
 - 첫 답변(직전 대화가 없을 때)은 듣는 자리입니다.
   needs_person 과 needs_verse 를 false 로 두십시오.
@@ -167,6 +180,34 @@ def _transcript(history: list[dict]) -> str:
     return "\n".join(lines)
 
 
+#: echo 로 받을 수 있는 최대 길이. 이보다 길면 문장이지 단어가 아니다.
+ECHO_MAX = 12
+
+
+def _short_echo(value) -> str:
+    """
+    되받을 말은 짧아야 한다.
+
+    ★ 문장을 그대로 주면 모델이 복창한다.
+      "어떻게 해결해야 할까요" 를 echo 로 줬더니 답변이
+      "어떻게 해결해야 할까요? 친구와의 소통이…" 로 시작했다.
+      사용자가 방금 한 말을 그대로 앞에 붙이는 것은 되받기가 아니라
+      메아리다.
+
+      명사 하나면 충분하다. '친구' 만 있어도 그 답은 그 사람 이야기가 된다.
+    """
+    text = str(value or "").strip().strip("\"'“”‘’")
+    if not text:
+        return ""
+    # 문장부호가 있으면 문장을 넣은 것이다.
+    if any(ch in text for ch in "?!.,…"):
+        return ""
+    # 종결어미로 끝나면 역시 문장이다.
+    if text.endswith(("요", "다", "까", "죠", "네", "어", "야")) and len(text) > 4:
+        return ""
+    return text if len(text) <= ECHO_MAX else ""
+
+
 def _as_bool(value) -> bool:
     """모델이 true/"true"/1 을 섞어 보낸다."""
     if isinstance(value, bool):
@@ -216,7 +257,7 @@ def plan(message: str, history: list[dict] | None = None) -> Plan | None:
         needs_person=_as_bool(data.get("needs_person")),
         needs_verse=_as_bool(data.get("needs_verse")),
         ask_question=_as_bool(data.get("ask_question")),
-        echo=str(data.get("echo") or "").strip()[:60],
+        echo=_short_echo(data.get("echo")),
         focus=str(data.get("focus") or "").strip()[:200],
     )
 
