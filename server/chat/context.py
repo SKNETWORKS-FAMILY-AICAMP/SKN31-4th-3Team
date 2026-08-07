@@ -34,6 +34,48 @@ CONTENT_LIMIT = 200
 NAME_FROM_TURN = 2
 
 
+#: 씨앗 구절을 프롬프트에 남겨 두는 턴 수.
+#:
+#: ★ 대화는 움직인다.
+#:   구절에서 시작했더라도 세 번쯤 주고받으면 이야기는 다른 곳에 가 있다.
+#:   실제로 "친구와 절교" 대화에 창세기 44:26(막내 아우 이야기)이 6턴째까지
+#:   프롬프트 맨 위에 남아 있었다. 관계없는 재료가 위에 있으면 모델은
+#:   재료 전체를 신뢰하지 않는다.
+SEED_VERSE_TURNS = 3
+
+
+def directive_for(turn: int, *, has_people: bool) -> str:
+    """
+    이번 답변에서 재료를 어떻게 쓸지.
+
+    ★ 시스템 프롬프트가 아니라 사용자 발화에 붙인다.
+      처음에는 시스템 프롬프트 안에 넣었다. 그런데 히스토리가 10개쯤
+      쌓이면 그 지시는 대화 저 앞쪽에 묻히고, 모델은 방금 들은 말에
+      반응한다. 지시를 마지막 턴 가까이 두는 것만으로 지켜지는 비율이
+      크게 달라진다.
+
+    ★ 조건문을 쓰지 않는다.
+      "~라면 ~하십시오" 는 모델이 조건을 스스로 판정해야 하고, 판정에
+      실패하면 조용히 아무것도 안 한다.
+    """
+    if not has_people:
+        return ""
+
+    if turn < NAME_FROM_TURN:
+        return (
+            "[이번 답변 지침]\n"
+            "아직 이름을 꺼내지 마십시오. 지금은 듣는 자리입니다."
+        )
+
+    return (
+        "[이번 답변 지침]\n"
+        "위 [이 감정을 지나간 사람들] 중 한 사람의 이름을 반드시 부르십시오.\n"
+        "예: \"룻도 그런 자리를 지났습니다. …\"\n"
+        "뭉뚱그리지 말고 이름을 말한 뒤, 사용자에게 돌아와 다시 물으십시오.\n"
+        "한 번에 한 사람입니다. 위에 없는 사실은 지어내지 마십시오."
+    )
+
+
 def for_session(session, question: str = "", turn: int = 1) -> str | None:
     """
     세션 하나의 바탕 문맥을 만든다.
@@ -60,7 +102,8 @@ def for_session(session, question: str = "", turn: int = 1) -> str | None:
     text = question or getattr(session, "seed_question", "") or ""
     parts: list[str] = []
 
-    verse = _resolve_verse(session)
+    # ★ 씨앗 구절은 초반에만 남긴다 (SEED_VERSE_TURNS 주석 참조).
+    verse = _resolve_verse(session) if turn <= SEED_VERSE_TURNS else None
     if verse is not None:
         ref = f"{verse.book_code} {verse.chapter}:{verse.verse}"
         body = (verse.summary or "").strip()
@@ -76,37 +119,15 @@ def for_session(session, question: str = "", turn: int = 1) -> str | None:
     if witnesses:
         parts.append(witnesses)
 
-    if not parts:
-        return None
+    # ★ 지시는 여기 넣지 않는다.
+    #   directive_for() 가 따로 만들고, 뷰가 그것을 사용자 발화 쪽에
+    #   붙인다. 시스템 프롬프트에 두면 히스토리에 묻힌다.
+    return "\n\n".join(parts) if parts else None
 
-    parts.append(_directive(turn, has_people=bool(witnesses) or verse is not None))
-    return "\n\n".join(parts)
 
-
-def _directive(turn: int, *, has_people: bool) -> str:
-    """
-    이번 답변에서 재료를 어떻게 쓸지, 조건 없이 한 문장으로.
-
-    ★ 조건문을 프롬프트에 넣지 않는다.
-      "~라면 ~하십시오" 는 모델이 조건을 스스로 판정해야 한다. 판정에
-      실패하면 조용히 아무것도 안 한다. 조건은 여기서 풀고, 프롬프트에는
-      지금 할 일만 남긴다.
-    """
-    if not has_people:
-        return "위는 참고 재료입니다. 설명하려 들지 말고 사용자의 말을 먼저 받으십시오."
-
-    if turn < NAME_FROM_TURN:
-        return (
-            "이번 답변에서는 위 인물의 이름을 꺼내지 마십시오.\n"
-            "지금은 듣는 자리입니다. 사용자가 어디에 서 있는지를 먼저 물으십시오."
-        )
-
-    return (
-        "이번 답변에서는 위 인물 가운데 한 사람을 반드시 꺼내십시오.\n"
-        "'어떤 사람도 그랬습니다' 처럼 뭉뚱그리지 말고 이름을 부르고,\n"
-        "그가 무엇을 지나갔는지 한두 문장으로 말한 뒤 사용자에게 돌아오십시오.\n"
-        "한 번에 한 사람입니다. 위에 없는 사실은 지어내지 마십시오."
-    )
+def has_people(text: str) -> bool:
+    """이번 턴에 꺼낼 인물이 있는가. 지시를 붙일지 판단하는 데 쓴다."""
+    return bool(_witnesses_block(text))
 
 
 class _Seed:

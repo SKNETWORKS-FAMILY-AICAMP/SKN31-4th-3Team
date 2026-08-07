@@ -338,6 +338,17 @@ def verse_context(verse_id: str, theme: str = "") -> VerseContext:
             //   재료를 많이 주는 것과 쓸 재료를 주는 것은 다르다.
             WHERE COUNT { (p)<-[:MENTIONS]-(:Verse) } <= $hub_limit
 
+            // ★ 감정 관계가 하나도 없는 인물은 뺀다.
+            //   적재된 Person 에는 "그 사람", "우리", "막내 아우" 같은
+            //   서술적 지칭이 섞여 있다(개체 통합이 완전하지 않다).
+            //   프롬프트에 그대로 넣었더니 모델이 "그 사람도 그랬습니다"
+            //   라고 쓸 수 없어서 재료를 통째로 무시했다.
+            //
+            //   이름 목록으로 막지 않는다. 감정 관계를 가진 인물만 남기면
+            //   쓸 수 있는 사람만 자연히 걸러진다 — 우리가 필요한 것이
+            //   "무엇을 겪고 무엇을 지나갔는가" 이기 때문이다.
+            AND EXISTS { (p)-[:EXPERIENCED|OVERCAME]->(:EmotionOrState) }
+
             OPTIONAL MATCH (p)-[:EXPERIENCED]->(e:EmotionOrState)
                 WHERE $theme = '' OR e.theme = $theme
             OPTIONAL MATCH (p)-[:OVERCAME]->(o:EmotionOrState)

@@ -19,6 +19,7 @@ from django.http import StreamingHttpResponse
 from llm_core.services import generate_llm_response
 from llm_core.services import generate_llm_stream_response
 from .context import for_session as build_verse_context
+from .context import directive_for, has_people
 from drf_spectacular.utils import extend_schema
 from llm_core.matching import recommend
 from llm_core.negotiation import EventStreamRenderer, IgnoreClientContentNegotiation
@@ -197,13 +198,14 @@ class ChatCompletionView(APIView):
         #   구절만 넣으면 "이 구절이 무슨 뜻인가" 를 설명하는 답이 나온다.
         #   그 구절에 등장한 인물이 무엇을 겪고 무엇을 지나갔는지가 있으면
         #   "그 사람도 여기 있었습니다" 쪽으로 말이 옮겨 간다.
+        turn = _turn_of(messages_history)
         try:
             ai_response_text = generate_llm_response(
                 messages_history=messages_history,
                 persona_id=session.persona_id or None,
-                verse_context=build_verse_context(
-                    session, user_message_text, turn=_turn_of(messages_history)
-                ),
+                verse_context=build_verse_context(session, user_message_text, turn=turn),
+                # ★ 지시는 사용자 발화 쪽에 붙는다 (chains._with_directive).
+                directive=directive_for(turn, has_people=has_people(user_message_text)),
             )
         except Exception as e:
             return Response(
@@ -271,9 +273,9 @@ class ChatStreamView(APIView):
         # ★ 스트림이 시작되기 전에 만든다.
         #   제너레이터 안에서 만들면 Neo4j 조회가 첫 조각을 늦춘다.
         #   사용자에게는 "답이 안 나온다" 로 보이는 구간이다.
-        verse_context = build_verse_context(
-            session, user_message_text, turn=_turn_of(messages_history)
-        )
+        turn = _turn_of(messages_history)
+        verse_context = build_verse_context(session, user_message_text, turn=turn)
+        directive = directive_for(turn, has_people=has_people(user_message_text))
 
         # 5. SSE 스트림 생성 함수 정의
         def event_stream():
@@ -285,6 +287,7 @@ class ChatStreamView(APIView):
                     messages_history,
                     persona_id=session.persona_id or None,
                     verse_context=verse_context,
+                    directive=directive,
                 ):
                     full_ai_content += chunk
                     # SSE 규격 포맷 전송 ("data: {"content": "..."}\n\n")

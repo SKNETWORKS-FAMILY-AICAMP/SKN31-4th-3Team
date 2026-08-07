@@ -188,26 +188,32 @@ class TurnDirectiveTests(TestCase):
 
     def test_첫_답변에는_이름을_꺼내지_말라고_한다(self):
         # ★ 처음부터 "룻도 그랬습니다" 로 시작하면 가르치는 사람이 된다.
-        result = self._context(turn=1)
-        self.assertIn("이름을 꺼내지 마십시오", result)
+        d = context.directive_for(1, has_people=True)
+        self.assertIn("아직 이름을 꺼내지 마십시오", d)
 
     def test_두_번째_답변부터는_반드시_꺼내라고_한다(self):
-        """
-        ★ "두 번째 답변부터" 를 프롬프트에 적었더니 안 지켜졌다.
-          모델더러 히스토리를 보고 턴을 세라는 뜻이었는데, 세는 것은
-          모델이 잘 못하는 일이고 서버는 이미 알고 있다. 세는 것은
-          서버가 하고 프롬프트에는 결론만 준다.
-        """
-        result = self._context(turn=2)
-        self.assertIn("반드시 꺼내십시오", result)
-        self.assertNotIn("이름을 꺼내지 마십시오", result)
+        d = context.directive_for(2, has_people=True)
+        self.assertIn("반드시 부르십시오", d)
+        self.assertNotIn("아직 이름을 꺼내지 마십시오", d)
+
+    def test_꺼낼_인물이_없으면_지시도_없다(self):
+        self.assertEqual(context.directive_for(3, has_people=False), "")
 
     def test_지시는_조건문이_아니다(self):
         # ★ "~라면 ~하십시오" 는 모델이 조건을 스스로 판정해야 하고,
         #   판정에 실패하면 조용히 아무것도 안 한다.
         for turn in (1, 2, 5):
-            result = self._context(turn=turn)
-            self.assertNotIn("있다면", result)
+            self.assertNotIn("있다면", context.directive_for(turn, has_people=True))
+
+    def test_씨앗_구절은_초반에만_남는다(self):
+        """
+        ★ 대화는 움직인다.
+          "친구와 절교" 대화에 창세기 44:26 이 6턴째까지 프롬프트 맨 위에
+          남아 있었다. 관계없는 재료가 위에 있으면 모델은 재료 전체를
+          신뢰하지 않는다.
+        """
+        self.assertGreaterEqual(context.SEED_VERSE_TURNS, 1)
+        self.assertLessEqual(context.SEED_VERSE_TURNS, 4)
 
 
 class TurnCountTests(TestCase):
@@ -257,3 +263,27 @@ class PromptWordingTests(TestCase):
 
         prompt = build_system_prompt("john", verse_context="재료")
         self.assertNotIn("두 번째 답변부터", prompt)
+        self.assertNotIn("반드시 부르십시오", prompt)
+
+
+class DirectivePlacementTests(TestCase):
+    """지시가 사용자 발화 쪽에 붙는가 — 이번 수정의 핵심."""
+
+    def test_지시가_마지막_발화에_붙는다(self):
+        """
+        ★ 시스템 프롬프트에 두었을 때 지켜지지 않았다.
+          히스토리가 열 개쯤 쌓이면 시스템 블록은 대화 저 앞이고,
+          모델은 방금 들은 말에 반응한다. 같은 문장을 마지막 턴에
+          붙이는 것만으로 결과가 달라진다.
+        """
+        from llm_core.chains import _with_directive
+
+        out = _with_directive("친구와 절교했어", "[이번 답변 지침]\n이름을 부르십시오")
+        self.assertTrue(out.startswith("친구와 절교했어"))
+        self.assertTrue(out.rstrip().endswith("이름을 부르십시오"))
+
+    def test_지시가_없으면_발화가_그대로다(self):
+        from llm_core.chains import _with_directive
+
+        self.assertEqual(_with_directive("안녕", None), "안녕")
+        self.assertEqual(_with_directive("안녕", ""), "안녕")

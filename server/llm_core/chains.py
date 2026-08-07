@@ -123,16 +123,39 @@ def build_chain(persona_id: str | None, verse_context: str | None = None):
     return build_prompt(persona_id, verse_context) | get_llm()
 
 
+def _with_directive(message: str, directive: str | None) -> str:
+    """
+    이번 턴의 지시를 사용자 발화 끝에 붙인다.
+
+    ★ 왜 시스템 프롬프트가 아니라 여기인가
+      지시를 시스템 프롬프트에 두었을 때 지켜지지 않았다. 히스토리가
+      열 개쯤 쌓이면 시스템 블록은 대화 저 앞이고, 모델은 방금 들은
+      말에 반응한다. 같은 문장을 마지막 턴에 붙이는 것만으로 결과가
+      달라진다 — 모델이 무엇을 "최근" 으로 보는지의 문제다.
+
+    ★ DB 에는 붙이지 않는다
+      사용자가 쓴 말은 이미 그대로 저장돼 있다. 여기서 만드는 것은
+      모델에게 보내는 이번 요청의 입력일 뿐이고, 화면에도 안 남는다.
+    """
+    if not directive:
+        return message
+    return f"{message}\n\n{directive}"
+
+
 def reply(
     message: str,
     *,
     persona_id: str | None = None,
     history: list[dict] | None = None,
     verse_context: str | None = None,
+    directive: str | None = None,
 ) -> str:
     """한 번에 받는다."""
     chain = build_chain(persona_id, verse_context)
-    result = chain.invoke({"input": message, "history": to_messages(history or [])})
+    result = chain.invoke({
+        "input": _with_directive(message, directive),
+        "history": to_messages(history or []),
+    })
     return result.content
 
 
@@ -142,6 +165,7 @@ def stream_reply(
     persona_id: str | None = None,
     history: list[dict] | None = None,
     verse_context: str | None = None,
+    directive: str | None = None,
 ) -> Iterator[str]:
     """
     조각으로 받는다. 한 조각이 곧 yield 하나다.
@@ -150,7 +174,10 @@ def stream_reply(
     그대로 흘리면 SSE 에 빈 data 줄이 쌓인다.
     """
     chain = build_chain(persona_id, verse_context)
-    for chunk in chain.stream({"input": message, "history": to_messages(history or [])}):
+    for chunk in chain.stream({
+        "input": _with_directive(message, directive),
+        "history": to_messages(history or []),
+    }):
         text = getattr(chunk, "content", "")
         if text:
             yield text

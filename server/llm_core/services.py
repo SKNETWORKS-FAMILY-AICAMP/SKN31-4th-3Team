@@ -28,6 +28,7 @@ def generate_llm_response(
     *,
     persona_id: str | None = None,
     verse_context: str | None = None,
+    directive: str | None = None,
 ) -> str:
     """
     한 번에 답변을 받는다 (동기 방식).
@@ -46,6 +47,7 @@ def generate_llm_response(
             persona_id=persona_id,
             history=history,
             verse_context=verse_context,
+            directive=directive,
         )
     except Exception as e:
         raise RuntimeError(f"OpenAI API 호출 중 오류가 발생했습니다: {str(e)}")
@@ -56,6 +58,7 @@ def generate_llm_stream_response(
     *,
     persona_id: str | None = None,
     verse_context: str | None = None,
+    directive: str | None = None,
 ) -> Iterator[str]:
     """답변을 조각으로 흘려보낸다 (SSE 용)."""
     history, current = _split(messages_history)
@@ -64,6 +67,7 @@ def generate_llm_stream_response(
         persona_id=persona_id,
         history=history,
         verse_context=verse_context,
+        directive=directive,
     )
 
 
