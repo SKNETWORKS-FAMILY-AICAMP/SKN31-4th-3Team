@@ -1,4 +1,4 @@
-# 📖 Eden — 성경 인물 MBTI 궁합 기반 RAG 상담 챗봇
+# 📖 Eden — 더 유니버스
 # SKN31기 4차 프로젝트 3팀
 # 팀명 `https://1.0.0.r.mine:address`
 
@@ -14,7 +14,7 @@
 * [디렉토리 구조](#디렉토리-구조)
 * [프로젝트 소개](#프로젝트-소개)
 * [산출물](#산출물)
-* [로컬환경 실행 방법](#로컬환경_실행_방법)
+* [로컬환경 실행 방법](#로컬환경-실행-방법)
 * [설계회고](#설계-회고)
 
 
@@ -50,22 +50,32 @@
 
 ---
 ## [WBS](docs/WBS.md)
-```
-                        7/30  7/31  8/1   8/2   8/3   8/4   8/5   8/6
-                        ────  ────  ────  ────  ────  ────  ────  ────
-1. 기획·설계            ████  ██
-2. 프론트 기반          ████  ████  ██
-3. 은하수 렌더 엔진           ████  ████  ████  ██
-4. 백엔드 기반                ████  ████  ██
-5. LLM 상담                         ████  ████  ██
-6. 성경 데이터·검색                       ████  ████  ████
-7. GraphDB                    ████  ████  ████  ████  ████  ██
-8. 통합·연동                                    ████  ████  ██
-9. 배포                                                     ████  ████
-10. 안정화·산출물                                                 ████
-```
+![WBS](docs/image/WBS.png)
 
 ## 기술스택
+#### Frontend
+![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=React&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=Vite&logoColor=white)
+![Axios](https://img.shields.io/badge/Axios-5A29E4?style=for-the-badge&logo=Axios&logoColor=white)
+
+#### Backend
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=Python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-009688?style=for-the-badge&logo=Django&logoColor=white)
+![Django REST Framework](https://img.shields.io/badge/Django_REST_Framework-A30000?style=for-the-badge&logo=django&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=JSON%20web%20tokens)
+
+#### AI & Frameworks
+![OpenAI](https://img.shields.io/badge/OpenAI-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)
+
+#### Database
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=PostgreSQL&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=SQLite&logoColor=white)
+
+#### Infrastructure & DevOps
+![Amazon EC2](https://img.shields.io/badge/Amazon_EC2-FF9900?style=for-the-badge&logo=AmazonEC2&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=Docker&logoColor=white)
+![Nginx](https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=Nginx&logoColor=white)
 
 ## 디렉토리 구조
 ```
@@ -155,6 +165,12 @@
 종교의 선택은 개인의 자유이지만, 성경의 말씀은 특정 종교를 믿지 않는 사람에게도 위로가 될 수 있다고 생각했습니다.\
 최근 해외에서 "예수님과 대화할 수 있는 챗봇" 앱이 큰 인기를 얻고 있다는 점에서 착안해,\
 한국에서도 종교에 대한 거부감 없이 자연스럽게 성경 말씀에 다가가고 함께할 수 있는 상담 챗봇을 만들어보고자 이 주제를 선택했습니다.
+
+#### * 데이터 수집
+* **데이터명**: 성경 전서 (구약 성경 39권 및 신약 성경 27권, 총 66권)
+* **데이터 규모**: 총 1,189장, 약 31,000개 이상의 구절(Verse) 데이터
+* **데이터 구조**: 각 구절별로 서지 정보(책 이름, 장, 절)와 본문 내용이 매핑된 구조화된 형태의 텍스트 데이터(JSON형식 )
+* **데이터 출처**: https://raw.githubusercontent.com/stranger828/bibleAPI/refs/heads/main/bible_structured.json
 
 ### 3. 주요 기능
 
@@ -299,40 +315,9 @@ erDiagram
     }
 ```
 ### 3) 주요 화면 구조 (화면설계서.md)
-```mermaid
-block-beta
-  columns 3
-
-  block:PUBLIC_GROUP["<b>비인증 영역 (Public)</b>"]:3
-    columns 3
-    
-    A1["<b>화면명</b><br/>UI-001. 로그인 / 회원가입"]:1
-    B1["<b>주요 기능</b><br/>- 카드형 반응형 UI<br/>- 로그인/가입 탭 전환<br/>- JWT 토큰 발급 및 저장"]:1
-    C1["<b>연결 API / 모듈</b><br/>POST /api/auth/login/<br/>POST /api/auth/signup/"]:1
-  end
-
-  block:PROTECTED_GROUP[" "]:3
-    columns 3
-    
-    A2["<b>UI-002. 메인 챗봇 대화</b>"]:1
-    B2["<b>주요 기능</b><br/>- SSE 실시간 스트리밍 답변<br/>- 대화 문맥(Context) 유지<br/>- Auto-scroll & Loading State"]:1
-    C2["<b>연결 API / 모듈</b><br/>POST /api/chat/stream/<br/>POST /api/chat/sessions/"]:1
-
-    A3["<b>UI-003. 대화 이력 사이드바</b>"]:1
-    B3["<b>주요 기능</b><br/>- 과거 대화 세션 목록 조회<br/>- 세션 선택 시 대화내역 복원<br/>- Mobile Drawer 햄버거 메뉴"]:1
-    C3["<b>연결 API / 모듈</b><br/>GET /api/chat/sessions/<br/>DELETE /api/chat/sessions/{id}/"]:1
-
-    A4["<b>UI-004. 메시지 & 코드 블록</b>"]:1
-    B4["<b>주요 기능</b><br/>- 마크다운 및 Syntax Highlighting<br/>- 원클릭 클립보드 코드 복사<br/>- 모바일 가로 스크롤 지원"]:1
-    C4["<b>연결 API / 모듈</b><br/>React CodeBlock Component<br/>MarkdownRenderer"]:1
-
-    A5["<b>UI-005. 마이페이지</b>"]:1
-    B5["<b>주요 기능</b><br/>- 사용자 프로필 정보 수정<br/>- 총 대화/질문 수행 건수 통계<br/>- 비밀번호 변경 및 로그아웃"]:1
-    C5["<b>연결 API / 모듈</b><br/>GET/PUT /api/users/me/<br/>GET /api/users/me/stats/"]:1
-  end
-```
+![alt text](docs/image/image.png)
 ---
-## [로컬환경 실행 방법(Windows)](docs/window_로컬_실행_가이드.md)
+## [로컬환경 실행 방법](docs/window_로컬_실행_가이드.md)
 ### 백엔드 — Windows
 
 1) 터미널에서 다음 명령어 순차적으로 실행
