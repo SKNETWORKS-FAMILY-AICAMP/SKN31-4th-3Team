@@ -71,70 +71,70 @@
 ```
 4TH_PROJECT/
 │
-├── frontend/                       프론트엔드 작업 폴더
+├── frontend/                           프론트엔드 작업 폴더
 │   ├── src/
-│   │   ├── components/             화면 조각 (71개 파일)
-│   │   │   ├── answer/               답변 패널 · 구절 카드
-│   │   │   ├── common/               버튼 · 오류 · 사이드바 · 복사 · 안전 안내
-│   │   │   ├── counsel/              대화 스레드
-│   │   │   ├── galaxy/               캔버스 · MBTI 레일 · 상징 배지 · 구절 목록 창
-│   │   │   ├── guide/                이용 안내 투어
-│   │   │   ├── home/                 질문 입력
-│   │   │   ├── intro/                창세기 시퀀스
-│   │   │   └── verse/                구절 상세 오버레이
+│   │   ├── components/                 화면 조각 (71개 파일)
+│   │   │   ├── answer/                 답변 패널 · 구절 카드
+│   │   │   ├── common/                 버튼 · 오류 · 사이드바 · 복사 · 안전 안내
+│   │   │   ├── counsel/                대화 스레드
+│   │   │   ├── galaxy/                 캔버스 · MBTI 레일 · 상징 배지 · 구절 목록 창
+│   │   │   ├── guide/                  이용 안내 투어
+│   │   │   ├── home/                   질문 입력
+│   │   │   ├── intro/                  창세기 시퀀스
+│   │   │   └── verse/                  구절 상세 오버레이
 │   │   │
-│   │   ├── galaxy/                 렌더 엔진 (30개 파일) — React 와 분리
-│   │   │   ├── GalaxyEngine.ts       단일 rAF 루프, 프레임당 할당 0
-│   │   │   ├── Camera.ts             궤도 카메라 (yaw·pitch·distance)
-│   │   │   ├── staticField.ts        3D 투영 · 별 그리기
-│   │   │   ├── emblemField.ts        별 → 상징 배정
-│   │   │   ├── twinkle.ts            별마다 다른 밝기 호흡
-│   │   │   ├── DustLayer.ts          성운 먼지
-│   │   │   ├── WordmarkLayer.ts      Eden 워드마크
-│   │   │   └── constellation.ts      별자리 연결선
+│   │   ├── galaxy/                     렌더 엔진 (30개 파일) — React 와 분리
+│   │   │   ├── GalaxyEngine.ts         단일 rAF 루프, 프레임당 할당 0
+│   │   │   ├── Camera.ts               궤도 카메라 (yaw·pitch·distance)
+│   │   │   ├── staticField.ts          3D 투영 · 별 그리기
+│   │   │   ├── emblemField.ts          별 → 상징 배정
+│   │   │   ├── twinkle.ts              별마다 다른 밝기 호흡
+│   │   │   ├── DustLayer.ts            성운 먼지
+│   │   │   ├── WordmarkLayer.ts        Eden 워드마크
+│   │   │   └── constellation.ts        별자리 연결선
 │   │   │
-│   │   ├── data/                   타입 · 큐레이션 구절 · 13제자 · 상징 도형
-│   │   ├── routes/                 7개 라우트 + 경로 정의
-│   │   ├── services/               API 클라이언트 · SSE · 저장소 인터페이스
-│   │   │   ├── apiClient.ts          fetch · 토큰 갱신 · 타임아웃 · 취소
-│   │   │   ├── sse.ts                EventStream 파서
-│   │   │   ├── httpRepositories.ts   Django 구현
-│   │   │   ├── mockRepositories.ts   백엔드 없이 도는 구현
-│   │   │   └── RepositoryProvider.tsx ★ mock ↔ API 교체 지점
+│   │   ├── data/                       타입 · 큐레이션 구절 · 13제자 · 상징 도형
+│   │   ├── routes/                     7개 라우트 + 경로 정의
+│   │   ├── services/                   API 클라이언트 · SSE · 저장소 인터페이스
+│   │   │   ├── apiClient.ts            fetch · 토큰 갱신 · 타임아웃 · 취소
+│   │   │   ├── sse.ts                  EventStream 파서
+│   │   │   ├── httpRepositories.ts     Django 구현
+│   │   │   ├── mockRepositories.ts     백엔드 없이 도는 구현
+│   │   │   └── RepositoryProvider.tsx  mock ↔ API 교체 지점
 │   │   │
-│   │   ├── state/                  Context + reducer
-│   │   └── styles/                 토큰 · 타이포그래피 · reset
+│   │   ├── state/                      Context + reducer
+│   │   └── styles/                     토큰 · 타이포그래피 · reset
 │   │
-│   ├── docker/                     nginx 설정 (SPA 폴백 + /api 프록시)
-│   └── Dockerfile                  빌드 → nginx
+│   ├── docker/                         nginx 설정 (SPA 폴백 + /api 프록시)
+│   └── Dockerfile                      빌드 → nginx
 │
-├── server/                         백엔드 작업 폴더
-│   ├── config/                     설정 · 라우팅 · WSGI
-│   ├── users/                      인증 · 회원
-│   ├── chat/                       대화방 · 메시지 · 스트리밍
-│   │   └── context.py                ★ 프롬프트 바탕 조립 (구절 + 그래프)
-│   ├── scripture/                  구절 · 검색 · 그래프
-│   │   ├── search.py                 ★ 네 층 검색
-│   │   ├── graph.py                  ★ Neo4j — 실패에 열린 통로
-│   │   ├── vectors.py                MRL 절단 + 재정규화
-│   │   ├── tone.py                   구절 성격 (위로 vs 경고)
-│   │   ├── usage.py                  상담 무관 구절 제외
-│   │   └── management/commands/      ingest_bible · assign_galaxies · graph_probe
+├── server/                             백엔드 작업 폴더
+│   ├── config/                         설정 · 라우팅 · WSGI
+│   ├── users/                          인증 · 회원
+│   ├── chat/                           대화방 · 메시지 · 스트리밍
+│   │   └── context.py                  프롬프트 바탕 조립 (구절 + 그래프)
+│   ├── scripture/                      구절 · 검색 · 그래프
+│   │   ├── search.py                   네 층 검색
+│   │   ├── graph.py                    Neo4j — 실패에 열린 통로
+│   │   ├── vectors.py                  MRL 절단 + 재정규화
+│   │   ├── tone.py                     구절 성격 (위로 vs 경고)
+│   │   ├── usage.py                    상담 무관 구절 제외
+│   │   └── management/commands/        ingest_bible · assign_galaxies · graph_probe
 │   │
-│   ├── llm_core/                   프롬프트 · 체인 · 인물 배정
-│   │   ├── prompts/                  3층 (공통 · 관계 · 페르소나)
-│   │   ├── chains.py                 LangChain 조립
-│   │   └── matching.py               질문 → 인물 배정
+│   ├── llm_core/                       프롬프트 · 체인 · 인물 배정
+│   │   ├── prompts/                    3층 (공통 · 관계 · 페르소나)
+│   │   ├── chains.py                   LangChain 조립
+│   │   └── matching.py                 질문 → 인물 배정
 │   │
-│   ├── tests/                      334개
+│   ├── tests/                     
 │   └── requirements.txt
 │
-├── data/                           원천 데이터(json)
-├── docs/                           작업별 부가 산출물
-├── 산출물/                           필수 산출물
-├── scripts/                        ec2-setup.sh · deploy.sh
-├── docker-compose.yml              로컬 (pgvector 컨테이너)
-└── docker-compose.prod.yml         배포 (RDS + 호스트 Ollama)
+├── data/                               원천 데이터(json)
+├── docs/                               작업별 부가 산출물
+├── 산출물/                             필수 산출물
+├── scripts/                            ec2-setup.sh · deploy.sh
+├── docker-compose.yml                  로컬 (pgvector 컨테이너)
+└── docker-compose.prod.yml             배포 (RDS + 호스트 Ollama)
 ```
 
 ## 프로젝트 소개
