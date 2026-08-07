@@ -66,7 +66,6 @@
 
 #### AI & Frameworks
 ![OpenAI](https://img.shields.io/badge/OpenAI-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
-![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)
 
 #### Database
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=PostgreSQL&logoColor=white)
