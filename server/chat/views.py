@@ -26,6 +26,23 @@ from scripture.intents import match_intent, theme_labels
 from scripture.models import Verse
 
 
+def _turn_of(messages_history) -> int:
+    """
+    지금 만들 답변이 몇 번째인가 (1부터).
+
+    ★ 세는 일을 모델에게 시키지 않는다.
+      프롬프트에 "두 번째 답변부터 인물을 꺼내십시오" 라고 적었더니
+      지켜지지 않았다. 그건 히스토리를 보고 턴을 세라는 뜻인데, 세는
+      것은 모델이 잘 못하는 일이고 우리는 이미 알고 있다.
+
+    ★ 사용자 발화가 아니라 지난 답변을 센다.
+      사용자가 연달아 두 줄을 보내는 경우가 있다. 그때 발화 수로 세면
+      아직 한 번도 답하지 않았는데 "두 번째" 가 된다.
+    """
+    past_answers = sum(1 for m in messages_history if m.get("role") == "assistant")
+    return past_answers + 1
+
+
 class ChatSessionListCreateView(generics.ListCreateAPIView):
     """
     대화방 목록 조회 및 새 대화방 생성 API
@@ -184,7 +201,9 @@ class ChatCompletionView(APIView):
             ai_response_text = generate_llm_response(
                 messages_history=messages_history,
                 persona_id=session.persona_id or None,
-                verse_context=build_verse_context(session, user_message_text),
+                verse_context=build_verse_context(
+                    session, user_message_text, turn=_turn_of(messages_history)
+                ),
             )
         except Exception as e:
             return Response(
@@ -252,7 +271,9 @@ class ChatStreamView(APIView):
         # ★ 스트림이 시작되기 전에 만든다.
         #   제너레이터 안에서 만들면 Neo4j 조회가 첫 조각을 늦춘다.
         #   사용자에게는 "답이 안 나온다" 로 보이는 구간이다.
-        verse_context = build_verse_context(session, user_message_text)
+        verse_context = build_verse_context(
+            session, user_message_text, turn=_turn_of(messages_history)
+        )
 
         # 5. SSE 스트림 생성 함수 정의
         def event_stream():

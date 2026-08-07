@@ -96,3 +96,16 @@
 @media (max-width: 640px) {
   .guide, .user { max-width: 88%; }
 }
+
+/*
+ * 말풍선 아래 동작 줄 (복사 등).
+ *
+ * ★ 본문과 붙여 두지 않는다.
+ *   글이 끝나는 자리와 버튼 사이에 여백이 없으면 버튼이 문장의 일부처럼
+ *   읽힌다. 한 칸 띄우면 "이 말에 대한 동작" 으로 읽힌다.
+ */
+.actions {
+  margin-top: var(--sp-2);
+  display: flex;
+  justify-content: flex-end;
+}

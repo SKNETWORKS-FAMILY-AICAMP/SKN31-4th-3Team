@@ -18,6 +18,7 @@ import { formatRef } from '../data/verses';
 import { useVerseStar } from '../state/VersesContext';
 import { getGalaxy } from '../data/disciples';
 import { isCrisis } from '../services/intentMatcher';
+import { TimeoutError } from '../services/apiClient';
 import { USING_API, useRepositories } from '../services/RepositoryProvider';
 import { fetchThread, streamCounselReply } from '../services/httpRepositories';
 import { useAppPhase } from '../state/AppPhaseContext';
@@ -50,6 +51,26 @@ function nextLocalId(): string {
 function detailOf(caught: unknown): string | undefined {
   if (caught instanceof Error && caught.message) return caught.message;
   return undefined;
+}
+
+/**
+ * 실패를 사용자의 말로 옮긴다.
+ *
+ * ★ 원인마다 할 일이 다르다.
+ *   시간 초과는 다시 눌러 볼 만하고, 연결 끊김은 네트워크를 봐야 하고,
+ *   서버 오류는 사용자가 할 수 있는 게 없다. 한 문구로 뭉뚱그리면
+ *   "다시 시도" 를 눌러야 할 사람과 눌러도 소용없는 사람이 같은 말을
+ *   듣는다.
+ */
+function messageFor(caught: unknown, fallback: string): string {
+  if (caught instanceof TimeoutError) {
+    return '응답이 늦어 멈췄습니다. 잠시 뒤 다시 시도해 주세요.';
+  }
+  if (caught instanceof TypeError) {
+    // fetch 는 네트워크가 끊기면 TypeError 를 던진다.
+    return '연결이 끊어졌습니다. 네트워크를 확인해 주세요.';
+  }
+  return fallback;
 }
 
 /** 대화 중 위기 신호에 붙이는 안내 메시지 */
@@ -200,7 +221,7 @@ export function CounselRoute() {
         if (stale()) return;
         dispatch({
           type: 'error',
-          message: '대화를 시작하지 못했습니다.',
+          message: messageFor(caught, '대화를 시작하지 못했습니다.'),
           detail: detailOf(caught),
         });
       });
@@ -276,7 +297,7 @@ export function CounselRoute() {
           .catch((caught: unknown) =>
             dispatch({
               type: 'error',
-              message: '답변을 받지 못했습니다. 다시 시도해 주세요.',
+              message: messageFor(caught, '답변을 받지 못했습니다. 다시 시도해 주세요.'),
               detail: detailOf(caught),
             }),
           );
@@ -304,13 +325,47 @@ export function CounselRoute() {
           if (controller.signal.aborted) return;
           dispatch({
             type: 'error',
-            message: '답변을 받지 못했습니다. 다시 시도해 주세요.',
+            message: messageFor(caught, '답변을 받지 못했습니다. 다시 시도해 주세요.'),
             detail: detailOf(caught),
           });
         });
     },
     [counsel, dispatch, state.threadId, state.seed, from],
   );
+
+  /*
+   * 홈에서 고른 주제·질문을 첫 발화로 자동 전송한다.
+   *
+   * ★ 사용자는 이미 물었다.
+   *   홈에서 "요즘 너무 지쳐요" 를 고르고 들어왔는데 상담창이 빈 입력칸을
+   *   내밀면, 방금 한 말을 한 번 더 치라는 뜻이 된다. 고른 주제가 곧
+   *   첫 질문이다.
+   *
+   * ★ 인사가 먼저 뜨고 나서 보낸다.
+   *   thread/started 로 첫 인사가 화면에 놓인 뒤에 사용자 발화가 붙어야
+   *   "인사 → 내 말 → 답" 순서가 된다. 동시에 넣으면 인사와 질문이 같은
+   *   순간에 나타나 누가 먼저 말한 건지 흐려진다.
+   *
+   * ★ 이어보기에서는 하지 않는다.
+   *   지난 대화를 다시 연 것뿐인데 질문이 또 날아가면 같은 말을 두 번
+   *   한 대화가 된다.
+   */
+  const autoSentRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (resumeId) return;
+    if (!state.threadId || state.pending) return;
+
+    const seeded = state.seed?.question?.trim();
+    if (!seeded) return;
+
+    // 이 방에서 이미 보냈는가. threadId 로 기억해야 다시 시작할 때 또 보낸다.
+    if (autoSentRef.current === state.threadId) return;
+    // 사용자가 이미 무언가 말했다면 씨앗 질문은 늦었다.
+    if (state.messages.some((m) => m.role === 'user')) return;
+
+    autoSentRef.current = state.threadId;
+    send(seeded);
+  }, [resumeId, state.threadId, state.pending, state.seed, state.messages, send]);
 
   // 화면을 떠날 때 진행 중인 스트림을 정리한다.
   useEffect(() => () => streamAbortRef.current?.abort(), []);

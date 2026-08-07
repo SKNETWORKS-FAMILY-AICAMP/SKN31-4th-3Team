@@ -166,6 +166,77 @@ class ContextWithGraphTests(TestCase):
         self.assertIsNone(result)
 
 
+class TurnDirectiveTests(TestCase):
+    """몇 번째 답변인지에 따라 지시가 달라지는가."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email="t4@example.com", username="tester", password="pw-not-checked-here"
+        )
+
+    @override_settings(NEO4J_URI="neo4j+s://x", NEO4J_USER="neo4j", NEO4J_PASSWORD="y")
+    def _context(self, turn):
+        from scripture import graph
+
+        session = ChatSession.objects.create(
+            user=self.user, seed_question="친구와 다퉜어요", persona_id="john"
+        )
+        fake = [graph.Witness(person="룻", felt=["충성"], became=["사랑과 가족의 회복"])]
+        with patch.object(graph, "theme_witnesses", return_value=fake):
+            with patch.object(graph, "enabled", return_value=True):
+                return context.for_session(session, "친구와 다퉜어요", turn=turn)
+
+    def test_첫_답변에는_이름을_꺼내지_말라고_한다(self):
+        # ★ 처음부터 "룻도 그랬습니다" 로 시작하면 가르치는 사람이 된다.
+        result = self._context(turn=1)
+        self.assertIn("이름을 꺼내지 마십시오", result)
+
+    def test_두_번째_답변부터는_반드시_꺼내라고_한다(self):
+        """
+        ★ "두 번째 답변부터" 를 프롬프트에 적었더니 안 지켜졌다.
+          모델더러 히스토리를 보고 턴을 세라는 뜻이었는데, 세는 것은
+          모델이 잘 못하는 일이고 서버는 이미 알고 있다. 세는 것은
+          서버가 하고 프롬프트에는 결론만 준다.
+        """
+        result = self._context(turn=2)
+        self.assertIn("반드시 꺼내십시오", result)
+        self.assertNotIn("이름을 꺼내지 마십시오", result)
+
+    def test_지시는_조건문이_아니다(self):
+        # ★ "~라면 ~하십시오" 는 모델이 조건을 스스로 판정해야 하고,
+        #   판정에 실패하면 조용히 아무것도 안 한다.
+        for turn in (1, 2, 5):
+            result = self._context(turn=turn)
+            self.assertNotIn("있다면", result)
+
+
+class TurnCountTests(TestCase):
+    """턴 세기 — 사용자가 연달아 말해도 흔들리지 않는가."""
+
+    def test_지난_답변의_수로_센다(self):
+        from chat.views import _turn_of
+
+        self.assertEqual(_turn_of([]), 1)
+        self.assertEqual(_turn_of([{"role": "user", "content": "안녕"}]), 1)
+
+        # ★ 사용자가 연달아 두 줄을 보내도 아직 첫 답변이다.
+        #   발화 수로 세면 답한 적이 없는데 "두 번째" 가 된다.
+        self.assertEqual(
+            _turn_of([{"role": "user", "content": "a"}, {"role": "user", "content": "b"}]),
+            1,
+        )
+        self.assertEqual(
+            _turn_of(
+                [
+                    {"role": "user", "content": "a"},
+                    {"role": "assistant", "content": "b"},
+                    {"role": "user", "content": "c"},
+                ]
+            ),
+            2,
+        )
+
+
 class PromptWordingTests(TestCase):
     """프롬프트 문구가 없는 구절을 있다고 말하지 않는가."""
 
@@ -178,4 +249,11 @@ class PromptWordingTests(TestCase):
 
         self.assertIn("다윗", prompt)
         self.assertNotIn("이 구절에서 시작된 대화", prompt)
-        self.assertIn("지어내지", prompt)
+
+    def test_턴별_지시를_여기서_또_쓰지_않는다(self):
+        # ★ 두 벌의 지시가 들어가면 어긋나는 순간 모델이 편한 쪽을 고른다.
+        #   이번 답변에 무엇을 할지는 chat/context.py 가 정해서 실어 보낸다.
+        from llm_core.prompts import build_system_prompt
+
+        prompt = build_system_prompt("john", verse_context="재료")
+        self.assertNotIn("두 번째 답변부터", prompt)

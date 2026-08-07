@@ -373,6 +373,8 @@ export const httpCounselRepository: CounselRepository = {
       method: 'POST',
       auth: true,
       body: { message: text },
+      // LLM 이 통째로 답을 만들어 오는 경로다. 기본 15초로는 짧다.
+      timeoutMs: 45_000,
     });
     return toMessage(dto);
   },
@@ -400,6 +402,13 @@ export async function streamCounselReply(
     auth: true,
     body: { message: text },
     signal,
+    /*
+     * ★ 스트리밍에는 타임아웃을 걸지 않는다.
+     *   긴 답변은 연결이 수십 초 열려 있는 것이 정상이다. 여기에
+     *   기본 타임아웃(15초)이 걸리면 잘 나오던 답이 중간에 끊긴다.
+     *   대신 화면을 떠나면 signal 로 끊는다 — 그건 진짜 취소다.
+     */
+    timeoutMs: 0,
   });
 
   let failure: string | null = null;

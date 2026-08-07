@@ -13,6 +13,7 @@ import { useEffect, useRef } from 'react';
 import type { CounselMessage } from '../../data/types';
 import { formatRef } from '../../data/verses';
 import { useVerses } from '../../state/VersesContext';
+import { CopyButton } from '../common/CopyButton';
 import { SafetyNotice } from '../common/SafetyNotice';
 import styles from './CounselThread.module.css';
 
@@ -79,6 +80,19 @@ export function CounselThread({ messages, pending, onSafetyBack }: Props) {
                 {formatRef(star)}
                 {star.depth === 'full' && ` · ${star.attribution}`}
               </p>
+            )}
+            {/*
+              ★ 안내자의 말에만 붙인다.
+                내가 쓴 말은 이미 내 것이고, 복사할 이유가 거의 없다.
+
+              ★ 스트리밍이 끝난 것만.
+                받는 중인 말을 복사하면 잘린 문장이 클립보드에 들어간다.
+                그건 실패보다 알아채기 어렵다.
+            */}
+            {!isUser && message.text.trim().length > 0 && !pending && (
+              <div className={styles.actions}>
+                <CopyButton text={message.text} label="이 답변 복사" />
+              </div>
             )}
           </article>
         );

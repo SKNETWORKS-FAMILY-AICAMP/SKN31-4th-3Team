@@ -138,6 +138,72 @@ interface RequestOptions {
   signal?: AbortSignal;
   /** 스트리밍 요청은 text/event-stream 을 요청한다. 기본은 JSON. */
   accept?: string;
+  /**
+   * 이 시간을 넘기면 포기한다 (ms). 0 이면 기다린다.
+   *
+   * ★ 스트리밍에는 쓰지 않는다.
+   *   SSE 는 답이 길면 몇십 초씩 열려 있는 것이 정상이다. 여기에
+   *   타임아웃을 걸면 긴 답변이 잘린다.
+   */
+  timeoutMs?: number;
+}
+
+/**
+ * 기본 타임아웃 (ms).
+ *
+ * ★ 왜 필요한가
+ *   fetch 는 스스로 포기하지 않는다. 서버가 응답하지 않으면 로딩
+ *   표시가 영원히 돌고, 사용자는 "멈췄다" 와 "느리다" 를 구분할 수
+ *   없다. 실패는 빨리 드러나는 편이 낫다.
+ *
+ * ★ 15초인 이유
+ *   임베딩 + LLM 호출이 붙은 요청이 느릴 때 3초 안팎이다. 그 다섯 배를
+ *   주고도 안 오면 정상 지연이 아니라 사고다.
+ */
+const DEFAULT_TIMEOUT_MS = 15_000;
+
+/** 시간이 다 되어 끊긴 요청. 네트워크 오류와 구분해 문구를 다르게 낸다. */
+export class TimeoutError extends Error {
+  constructor(readonly ms: number) {
+    super(`응답이 ${Math.round(ms / 1000)}초 안에 오지 않았습니다.`);
+    this.name = 'TimeoutError';
+  }
+}
+
+/**
+ * 호출자의 중단 신호와 타임아웃을 하나로 묶는다.
+ *
+ * ★ AbortSignal.any 를 쓰지 않는다.
+ *   2024년에 들어온 API 라 발표장 브라우저에 있다고 장담할 수 없다.
+ *   직접 엮으면 어디서나 돈다.
+ *
+ * @returns [묶인 신호, 정리 함수, 타임아웃으로 끊겼는지 묻는 함수]
+ */
+function linkAbort(
+  outer: AbortSignal | undefined,
+  timeoutMs: number,
+): [AbortSignal, () => void, () => boolean] {
+  const controller = new AbortController();
+  let timedOut = false;
+
+  const onOuterAbort = () => controller.abort();
+  outer?.addEventListener('abort', onOuterAbort);
+  if (outer?.aborted) controller.abort();
+
+  const timer =
+    timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, timeoutMs)
+      : null;
+
+  const cleanup = () => {
+    if (timer) clearTimeout(timer);
+    outer?.removeEventListener('abort', onOuterAbort);
+  };
+
+  return [controller.signal, cleanup, () => timedOut];
 }
 
 async function send(path: string, options: RequestOptions, retry = true): Promise<Response> {
@@ -147,12 +213,31 @@ async function send(path: string, options: RequestOptions, retry = true): Promis
   };
   if (options.auth && accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method: options.method ?? 'GET',
-    headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    signal: options.signal,
-  });
+  const [signal, cleanup, wasTimeout] = linkAbort(
+    options.signal,
+    options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+  );
+
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      method: options.method ?? 'GET',
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal,
+    });
+  } catch (error) {
+    /*
+     * ★ 시간 초과와 사용자 취소를 구분한다.
+     *   둘 다 AbortError 로 온다. 구분하지 않으면 화면을 떠난 사용자에게
+     *   "응답이 늦습니다" 를 띄우거나, 정말 느린 서버를 취소로 처리해
+     *   아무 말 없이 넘어간다.
+     */
+    if (wasTimeout()) throw new TimeoutError(options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    throw error;
+  } finally {
+    cleanup();
+  }
 
   // 만료된 토큰이면 한 번만 갱신해 다시 보낸다. 두 번 이상은 무한 루프다.
   if (response.status === 401 && options.auth && retry) {

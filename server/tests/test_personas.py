@@ -187,8 +187,18 @@ class TestSystemPrompt:
     def test_verse_context_is_injected(self):
         prompt = build_system_prompt("john", verse_context="시편 23:1 — 목자 되심")
         assert "시편 23:1" in prompt
-        # 구절을 설명하지 말라는 지시가 함께 붙어야 한다
-        assert "설명하려 들지 말고" in prompt
+
+    def test_verse_context_carries_no_turn_rules(self):
+        """
+        ★ 이번 답변에서 무엇을 할지는 여기서 정하지 않는다.
+          chat/context.py 가 턴 수를 보고 정해서 verse_context 끝에
+          실어 보낸다. 여기서 또 규칙을 쓰면 두 벌의 지시가 들어가고,
+          서로 어긋나는 순간 모델은 편한 쪽 — 대개 아무것도 안 하는
+          쪽을 고른다.
+        """
+        prompt = build_system_prompt("john", verse_context="재료")
+        assert "두 번째 답변부터" not in prompt
+        assert "첫 답변에서는" not in prompt
 
     def test_no_markdown_leaks_into_output_rules(self):
         # 대화창에 ** 가 그대로 노출되는 것을 막는다

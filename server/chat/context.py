@@ -26,7 +26,15 @@ logger = logging.getLogger(__name__)
 CONTENT_LIMIT = 200
 
 
-def for_session(session, question: str = "") -> str | None:
+#: 인물을 꺼내라고 지시하기 시작하는 답변 번호.
+#:
+#: ★ 첫 답변은 듣는 자리다.
+#:   처음부터 "다윗도 그랬습니다" 로 시작하면 가르치는 사람이 된다.
+#:   한 번은 사용자의 말을 받고, 그다음부터 이야기를 꺼낸다.
+NAME_FROM_TURN = 2
+
+
+def for_session(session, question: str = "", turn: int = 1) -> str | None:
     """
     세션 하나의 바탕 문맥을 만든다.
 
@@ -38,8 +46,15 @@ def for_session(session, question: str = "") -> str | None:
       구절이 없으면 질문의 감정으로 인물을 찾는다. 그래프가 줄 수 있는
       것은 구절만이 아니다.
 
+    ★ 몇 번째 답변인지는 서버가 세서 알려 준다.
+      프롬프트에 "두 번째 답변부터 인물을 꺼내십시오" 라고 적어 봤지만
+      지켜지지 않았다. 그건 모델더러 히스토리를 보고 턴을 세라는
+      뜻인데, 세는 일은 모델이 잘 못하고 우리는 이미 알고 있다.
+      세는 것은 여기서 하고, 모델에는 결론만 준다.
+
     :param session: ChatSession
     :param question: 사용자의 이번 발화. 감정 주제를 뽑는 데 쓴다.
+    :param turn: 지금 만들 답변이 몇 번째인가 (1부터).
     :return: build_system_prompt(verse_context=...) 에 넣을 문자열. 없으면 None.
     """
     text = question or getattr(session, "seed_question", "") or ""
@@ -61,7 +76,37 @@ def for_session(session, question: str = "") -> str | None:
     if witnesses:
         parts.append(witnesses)
 
-    return "\n\n".join(parts) if parts else None
+    if not parts:
+        return None
+
+    parts.append(_directive(turn, has_people=bool(witnesses) or verse is not None))
+    return "\n\n".join(parts)
+
+
+def _directive(turn: int, *, has_people: bool) -> str:
+    """
+    이번 답변에서 재료를 어떻게 쓸지, 조건 없이 한 문장으로.
+
+    ★ 조건문을 프롬프트에 넣지 않는다.
+      "~라면 ~하십시오" 는 모델이 조건을 스스로 판정해야 한다. 판정에
+      실패하면 조용히 아무것도 안 한다. 조건은 여기서 풀고, 프롬프트에는
+      지금 할 일만 남긴다.
+    """
+    if not has_people:
+        return "위는 참고 재료입니다. 설명하려 들지 말고 사용자의 말을 먼저 받으십시오."
+
+    if turn < NAME_FROM_TURN:
+        return (
+            "이번 답변에서는 위 인물의 이름을 꺼내지 마십시오.\n"
+            "지금은 듣는 자리입니다. 사용자가 어디에 서 있는지를 먼저 물으십시오."
+        )
+
+    return (
+        "이번 답변에서는 위 인물 가운데 한 사람을 반드시 꺼내십시오.\n"
+        "'어떤 사람도 그랬습니다' 처럼 뭉뚱그리지 말고 이름을 부르고,\n"
+        "그가 무엇을 지나갔는지 한두 문장으로 말한 뒤 사용자에게 돌아오십시오.\n"
+        "한 번에 한 사람입니다. 위에 없는 사실은 지어내지 마십시오."
+    )
 
 
 class _Seed:

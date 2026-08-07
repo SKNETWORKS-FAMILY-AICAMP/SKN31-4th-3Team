@@ -1,0 +1,66 @@
+/*
+ * 복사 버튼.
+ *
+ * ★ 평소에는 물러나 있다.
+ *   답변을 읽는 동안 버튼이 또렷하면 눈이 그리로 간다. 대화가 주인공이고
+ *   복사는 필요할 때만 찾는 기능이다. 말풍선에 손이 닿으면 드러난다.
+ *
+ * ★ 폭이 변하지 않는다.
+ *   "복사" 와 "복사됨" 은 글자 수가 다르다. 그대로 두면 눌렀을 때 버튼이
+ *   커지면서 옆 것들이 밀린다. 최소 폭을 잡아 자리를 미리 비워 둔다.
+ */
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 4.5rem;
+  justify-content: center;
+  padding: 3px var(--sp-2);
+
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+
+  opacity: 0;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+/*
+ * ★ 손이 닿거나 포커스가 오면 드러난다.
+ *   :focus-visible 을 빼면 키보드 사용자에게는 이 기능이 없는 것과 같다.
+ */
+article:hover .button,
+.button:focus-visible {
+  opacity: 1;
+}
+
+.button:hover {
+  color: var(--ink-1);
+  border-color: var(--line-0);
+}
+
+/* 결과가 뜬 동안에는 손을 떼도 보인다 — 결과를 못 보고 지나치면 의미가 없다 */
+.button[data-status='copied'],
+.button[data-status='failed'] {
+  opacity: 1;
+}
+
+.button[data-status='copied'] { color: var(--light-warm); }
+.button[data-status='failed'] { color: var(--ink-2); }
+
+.text {
+  white-space: nowrap;
+}
+
+/*
+ * 터치 화면에는 hover 가 없다.
+ * 손이 닿아야 드러나는 규칙을 그대로 두면 버튼이 영영 안 보인다.
+ */
+@media (hover: none) {
+  .button { opacity: 0.6; }
+}

@@ -37,6 +37,7 @@ import {
   type NodeTransform,
 } from './system';
 import { seededRandom } from './placement';
+import { twinkleAt } from './twinkle';
 import { buildEmblemField, EMBLEM_RADIUS, type EmblemField } from './emblemField';
 import {
   DEFAULT_TIMELINE,
@@ -1584,10 +1585,27 @@ export class GalaxyEngine {
       const mag = buffers.magnitude[i];
       const radius =
         Math.max(MIN_STAR_RADIUS, (1.15 + mag * 2.3) * p.depth) * boost * sizeScale;
-      const alpha = Math.min(
+
+      /*
+       * ★ 별마다 다른 호흡으로 흔들린다.
+       *   같은 밝기로 고정하면 하늘이 아니라 전구판이 된다. 어두운 별이
+       *   더 크게 흔들리도록 magnitude 를 넘긴다 (galaxy/twinkle.ts).
+       *
+       * ★ 하한 뒤에 곱한다.
+       *   MIN_STAR_ALPHA 는 "이보다 옅으면 별이 있다는 사실 자체가
+       *   사라진다" 는 선이다. 그 전에 곱하면 흔들림의 골에서 별이
+       *   사라졌다 나타나고, 클릭 대상이 깜빡이는 셈이 된다.
+       *
+       * ★ 흔들림은 픽킹에 영향을 주지 않는다.
+       *   아래 pickCache 의 offscreen 판정은 흔들리지 않는 alpha 를
+       *   쓴다. 골에서 잠깐 눌린 값 때문에 누를 수 있던 별이 안 눌리면
+       *   그건 고장이다.
+       */
+      const steady = Math.min(
         1,
         Math.max(MIN_STAR_ALPHA, (0.5 + mag * 0.5) * p.depth) * boost * starLuminance,
       );
+      const alpha = this.input.reducedMotion ? steady : steady * twinkleAt(i, this.elapsed, mag);
 
       // 픽킹 캐시 갱신. 카메라 뒤·화면 밖·아직 안 나타난 별은 반경 0으로 둔다.
       const offscreen =
@@ -1596,7 +1614,8 @@ export class GalaxyEngine {
         p.sx > vp.width + 40 ||
         p.sy < -40 ||
         p.sy > vp.height + 40 ||
-        alpha < 0.08;
+        // ★ 흔들리지 않는 값으로 판정한다. 위 주석 참조.
+        steady < 0.08;
       this.pickCache[i * 3] = p.sx;
       this.pickCache[i * 3 + 1] = p.sy;
       this.pickCache[i * 3 + 2] = offscreen ? 0 : radius;
