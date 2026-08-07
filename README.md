@@ -191,20 +191,20 @@
 
 <사용자 기능>
 * 회원가입  
-<img src="server/docs/image/register.jpeg" width=70%>
+<img src="docs/image/register.jpeg" width=70%>
 * 채팅창  
-<img src="server/docs/image/comunication.jpeg" width=70%>
+<img src="docs/image/comunication.jpeg" width=70%>
 * 사이드바  
-<img src="server/docs/image/sidebar.jpeg" width=70%>
+<img src="docs/image/sidebar.jpeg" width=70%>
 * 마이페이지  
-<img src="server/docs/image/mypage.jpeg" width=70%>
+<img src="docs/image/mypage.jpeg" width=70%>
 
 <관리자 기능>
 * Django Admin  
-<img src="server/docs/image/Django_admin.jpeg" width=70%>
+<img src="docs/image/Django_admin.jpeg" width=70%>
 
 * swagger API  
-<img src="server/docs/image/API.png" width=70%>
+<img src="docs/image/API.png" width=70%>
 
 ### 4. AWS EC2 URL
 **Eden** http://3.37.228.101/
