@@ -32,6 +32,15 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # LLM 호출용. 없으면 상담 답변 생성이 실패한다 (서버는 뜬다).
 OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
 
+# 답변 모델. 발표 직전에 좋은 모델로 갈아 끼우는 일이 있다.
+LLM_MODEL = env('LLM_MODEL', default='gpt-4o-mini')
+
+# 계획용 모델과 스위치 (chat/planner.py).
+#   답변을 쓰기 전에 "이번 답변이 뭘 해야 하는가" 를 먼저 묻는 호출이다.
+#   끄면 예전 턴 규칙으로 돈다 — 무대에서 이상하면 이 값만 false 로.
+PLANNER_ENABLED = env.bool('PLANNER_ENABLED', default=True)
+PLANNER_MODEL = env('PLANNER_MODEL', default='gpt-4o-mini')
+
 # Neo4j Aura — 감정·인물·사건 그래프.
 #
 # ★ 비어 있는 것이 정상 상태의 하나다.

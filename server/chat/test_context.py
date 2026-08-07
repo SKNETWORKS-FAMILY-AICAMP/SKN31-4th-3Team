@@ -143,7 +143,8 @@ class ContextWithGraphTests(TestCase):
 
         fake = [graph.Witness(person="다윗", felt=["두려움"], became=["평안"])]
         with patch.object(graph, "theme_witnesses", return_value=fake):
-            result = context.for_session(session, "요즘 너무 불안합니다")
+            # ★ 인물은 재료를 얹는 턴에만 들어간다 (_material_turn).
+            result = context.for_session(session, "요즘 너무 불안합니다", turn=2)
 
         self.assertIsNotNone(result)
         self.assertIn("다윗", result)
@@ -158,7 +159,7 @@ class ContextWithGraphTests(TestCase):
 
         with patch.object(graph, "theme_witnesses", side_effect=RuntimeError("끊김")):
             try:
-                result = context.for_session(session, "불안합니다")
+                result = context.for_session(session, "불안합니다", turn=2)
             except Exception as exc:  # pragma: no cover
                 self.fail(f"예외가 밖으로 나왔습니다: {exc}")
 
@@ -189,12 +190,28 @@ class TurnDirectiveTests(TestCase):
     def test_첫_답변에는_이름을_꺼내지_말라고_한다(self):
         # ★ 처음부터 "룻도 그랬습니다" 로 시작하면 가르치는 사람이 된다.
         d = context.directive_for(1, has_people=True)
-        self.assertIn("아직 이름을 꺼내지 마십시오", d)
+        self.assertIn("인물을 꺼내지 마십시오", d)
 
     def test_두_번째_답변부터는_이름을_부르라고_한다(self):
         d = context.directive_for(2, has_people=True)
         self.assertIn("이름을 부르십시오", d)
-        self.assertNotIn("아직 이름을 꺼내지 마십시오", d)
+
+    def test_인물은_한_턴_걸러_나온다(self):
+        """
+        ★ 매 턴 꺼내라고 했더니 명함첩이 됐다.
+          2턴 "다윗도 배신으로 슬퍼했습니다", 3턴 "룻은 회복을 위해
+          노력했습니다". 사용자가 방금 한 말은 어디에도 없다.
+        """
+        self.assertIn("이름을 부르십시오", context.directive_for(2, has_people=True))
+        self.assertIn("인물을 꺼내지 마십시오", context.directive_for(3, has_people=True))
+        self.assertIn("이름을 부르십시오", context.directive_for(4, has_people=True))
+
+    def test_분류표의_말을_그대로_읽지_말라고_한다(self):
+        # ★ 그래프는 "룻: 충성 → 사랑과 가족의 회복" 을 준다.
+        #   모델이 그걸 그대로 읽어 "룻은 사랑과 가족의 회복을 위해
+        #   노력했던 사람입니다" 가 나왔다. 라벨 낭독이지 이야기가 아니다.
+        d = context.directive_for(2, has_people=True)
+        self.assertIn("분류표의 말", d)
 
     def test_꺼낼_인물이_없어도_말투_지시는_나간다(self):
         """
@@ -247,10 +264,12 @@ class AskCadenceTests(TestCase):
         asks = [context._may_ask(t) for t in range(1, 7)]
         self.assertEqual(asks, [True, False, True, False, True, False])
 
-    def test_구절은_첫_답변에는_안_꺼낸다(self):
-        # 무슨 일인지도 모르면서 구절을 내밀면 훈수가 된다.
-        self.assertNotIn("구절을 한 줄", context.directive_for(1, has_people=False))
-        self.assertIn("구절을 한 줄", context.directive_for(2, has_people=False))
+    def test_재료를_얹는_턴에는_묻지_않는다(self):
+        # 인물·구절·질문을 한 답변에 다 넣으면 셋 다 얕아진다.
+        for turn in range(1, 8):
+            self.assertNotEqual(
+                context._material_turn(turn), context._may_ask(turn), f"turn={turn}"
+            )
 
     def test_상담_교본_문장을_금지한다(self):
         # 누구에게나 쓸 수 있는 문장은 아무에게도 닿지 않는다.
@@ -258,6 +277,160 @@ class AskCadenceTests(TestCase):
 
         for banned in ("많이 힘드시겠네요", "어떤 감정이 드시나요", "자연스러운 일입니다"):
             self.assertIn(banned, COMMON_RULES)
+
+
+class ClosingTurnTests(TestCase):
+    """대화를 닫는 말을 알아보는가."""
+
+    def test_감사와_수긍을_알아본다(self):
+        for text in ("고마워", "고맙습니다", "감사해요", "알겠어", "그렇구나", "응", "ㅋㅋ", "오케이"):
+            self.assertTrue(context.is_closing(text), text)
+
+    def test_짧아도_묻고_있으면_아니다(self):
+        self.assertFalse(context.is_closing("왜 그럴까?"))
+        self.assertFalse(context.is_closing("어떻게 해"))
+
+    def test_짧은_것과_가벼운_것은_다르다(self):
+        """
+        ★ 처음에는 "12자 이하면 가벼운 말" 로 짰다.
+          그랬더니 "불안합니다" 가 걸렸다. 상담에서 가장 중요한 말이
+          대개 가장 짧다.
+        """
+        for text in ("불안합니다", "무서워요", "너무 외로워", "다 놓고 싶어요"):
+            self.assertFalse(context.is_closing(text), text)
+
+    def test_이야기를_이어가면_아니다(self):
+        for text in ("동생이 아파서 일이 손에 안 잡혀요", "친구와 절교를 해서 마음이 아파"):
+            self.assertFalse(context.is_closing(text), text)
+
+    def test_위기_신호는_짧아도_가벼운_말이_아니다(self):
+        # 판정은 [안전] 층이 한다. 여기서는 가벼운 응답으로 넘기지만 않으면 된다.
+        self.assertFalse(context.is_closing("죽고 싶어"))
+
+
+class MaterialOmissionTests(TestCase):
+    """
+    안 쓸 재료를 프롬프트에 넣지 않는가.
+
+    ★ 이게 "고마워 → 아브라함" 의 진짜 원인이었다.
+      인물 블록은 늘 넣어 놓고 "이번에는 꺼내지 마십시오" 라고만 적었다.
+      눈앞에 놓인 재료를 금지문으로 이길 수 없다. 안 쓸 거면 안 넣는다.
+    """
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email="t5@example.com", username="tester", password="pw-not-checked-here"
+        )
+
+    @override_settings(NEO4J_URI="neo4j+s://x", NEO4J_USER="neo4j", NEO4J_PASSWORD="y")
+    def _materials(self, question, turn):
+        from scripture import graph
+
+        session = ChatSession.objects.create(
+            user=self.user, seed_question="친구와 다퉜어요", persona_id="john"
+        )
+        fake = [graph.Witness(person="아브라함", felt=["감사"], became=["믿음"])]
+        with patch.object(graph, "theme_witnesses", return_value=fake):
+            with patch.object(graph, "enabled", return_value=True):
+                return context.materials(session, question, turn=turn)
+
+    def test_고마워에는_아무것도_안_얹는다(self):
+        m = self._materials("고마워", turn=2)
+        self.assertTrue(m.closing)
+        self.assertIsNone(m.text)
+        self.assertFalse(m.has_people)
+
+    def test_재료를_안_쓰는_턴에는_인물도_안_넣는다(self):
+        m = self._materials("요즘 너무 불안합니다", turn=3)
+        self.assertIsNone(m.text)
+
+    def test_재료_턴에는_인물이_들어간다(self):
+        m = self._materials("요즘 너무 불안합니다", turn=2)
+        self.assertTrue(m.has_people)
+        self.assertIn("아브라함", m.text)
+
+
+class GroundedVerseTests(TestCase):
+    """
+    없는 구절을 꺼내라고 시키지 않는가.
+
+    ★ 이걸 왜 구조로 막는가
+      "친구와 다시 친해지고 싶어" 에 이런 답이 나왔다.
+        "'내가 네게 무엇을 해 주리오?' 라는 말이 떠오릅니다"
+      상황과도 안 맞고 출처도 불분명하다. 프롬프트에 구절이 하나도
+      없는데 "구절을 꺼내십시오" 라고 시켰기 때문이다. 모델은
+      시키면 한다 — 없으면 기억에서 만들어서라도.
+    """
+
+    def test_구절이_없으면_인용하지_말라고_한다(self):
+        d = context.directive_for(2, has_verse=False)
+        self.assertIn("성경 구절을 인용하지 마십시오", d)
+
+    def test_구절이_있으면_그것을_쓰라고_한다(self):
+        d = context.directive_for(2, has_verse=True)
+        self.assertIn("[지금 대화의 바탕]에 있는 구절", d)
+        self.assertNotIn("인용하지 마십시오", d)
+
+    def test_구절이_있어도_홀수_턴에는_안_꺼낸다(self):
+        # 재료를 얹는 턴이 아니면 사용자의 말만 받는다.
+        self.assertIn("인용하지 마십시오", context.directive_for(3, has_verse=True))
+
+
+class ActionRequestTests(TestCase):
+    """
+    '어떻게 할지' 를 물었는데 감정으로 되돌리지 않는가.
+
+    ★ 실제로 나온 답이다.
+      사용자: "친구와 다시 친해지고 싶어"
+      답변:   "그 마음이 어떤 길로 이어질 수 있을까요?"
+      사용자는 이미 길을 말했다. 그걸 다시 물으면 회피다.
+    """
+
+    def test_원하는_것을_말하면_걸린다(self):
+        for text in (
+            "친구와 다시 친해지고 싶어",
+            "어떻게 해야 할까요",
+            "무슨 방법이 있을까요",
+            "뭘 해야 할지 모르겠어요",
+            "먼저 연락해도 될까",
+        ):
+            self.assertTrue(context.wants_action(text), text)
+
+    def test_감정만_말하면_안_걸린다(self):
+        for text in ("마음이 슬퍼", "요즘 너무 지쳐요", "동생이 아파서 일이 손에 안 잡혀"):
+            self.assertFalse(context.wants_action(text), text)
+
+    def test_위기_신호에는_한_걸음을_붙이지_않는다(self):
+        """
+        ★ "사라지고 싶어" 도 문법으로는 '-고 싶다' 다.
+          여기에 "오늘 할 수 있는 일 하나" 를 붙이면 안 된다.
+          이 지침은 마지막 발화에 실려 가장 강하게 작동하기 때문에,
+          안전 규칙과 부딪히게 두면 안 된다.
+        """
+        for text in ("그냥 사라지고 싶어", "죽고 싶어요", "살고 싶지 않아"):
+            self.assertFalse(context.wants_action(text), text)
+
+    def test_요청_턴에는_되묻지_말라고_한다(self):
+        d = context.directive_for(3, asked_for_action=True)
+        self.assertIn("한 걸음을 놓으십시오", d)
+        # ★ 홀수 턴이라 원래는 물어도 되는 턴이다. 요청이 그것을 이긴다.
+        self.assertIn("물음표로 끝내지 마십시오", d)
+
+    def test_짧게_받은_말에는_짧게_받는다(self):
+        """
+        ★ 실제로 "고마워" 에 이런 답이 나왔다.
+          "고마워요. 아브라함은 믿음으로 가족과의 관계를 지키기 위해
+           많은 어려움을 겪었죠. … 지금 어떤 생각이 드시나요?"
+          끝내려는 사람을 붙잡는 꼴이다.
+        """
+        d = context.directive_for(2, has_people=True, has_verse=True, closing=True)
+        self.assertIn("한두 문장으로 받고 끝내십시오", d)
+        self.assertIn("인물도 구절도 꺼내지 마십시오", d)
+        self.assertNotIn("이름을 부르십시오", d)
+
+    def test_요청_턴에는_목록을_만들지_말라고_한다(self):
+        # 방법 세 개를 늘어놓으면 상담이 아니라 안내문이 된다.
+        self.assertIn("목록으로 만들지 마십시오", context.directive_for(3, asked_for_action=True))
 
 
 class TurnCountTests(TestCase):
@@ -331,3 +504,150 @@ class DirectivePlacementTests(TestCase):
 
         self.assertEqual(_with_directive("안녕", None), "안녕")
         self.assertEqual(_with_directive("안녕", ""), "안녕")
+
+
+class PlannerTests(TestCase):
+    """
+    답을 쓰기 전에 '이번 답변이 뭘 해야 하는가' 를 먼저 묻는다.
+
+    ★ 왜 이 층이 생겼는가
+      그전까지 규칙은 전부 '몇 번째 턴인가' 로 인덱싱돼 있었다.
+      사용자가 무슨 말을 했는지는 정규식 몇 개로만 봤다. 그래서
+      "고마워" 한마디에 아브라함과 구절과 새 질문이 쏟아졌다 —
+      턴 번호는 짝수였고 규칙은 시킨 대로 했다.
+
+    ★ 여기서 확인하는 것은 계획의 품질이 아니다.
+      그건 모델이 한다. 여기서는 배관을 본다.
+        - 계획이 실려 오면 턴 규칙 대신 계획을 따르는가
+        - 계획이 죽으면 예전 규칙으로 조용히 돌아가는가
+        - 계획이 뭐라 하든 안전 바닥은 코드가 지키는가
+    """
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email="t6@example.com", username="tester", password="pw-not-checked-here"
+        )
+
+    def _plan(self, **kw):
+        from chat.planner import Plan
+
+        return Plan(**kw)
+
+    # ── 배관: 계획이 턴 규칙을 이기는가 ────────────────────────────
+
+    def test_계획이_없으면_턴_규칙으로_돈다(self):
+        # ★ 플래너는 더 좋아지는 장치이지, 없으면 안 되는 장치가 아니다.
+        d = context.directive_for(3, has_people=True, plan=None)
+        self.assertIn("인물을 꺼내지 마십시오", d)  # 3턴 = 홀수 = 재료 없음
+
+    def test_계획이_있으면_홀수_턴에도_인물을_꺼낸다(self):
+        # 턴 번호가 아니라 사용자가 방금 한 말이 정한다.
+        p = self._plan(state="감정", needs_person=True, ask_question=False)
+        d = context.directive_for(3, has_people=True, plan=p)
+        self.assertIn("이름을 부르십시오", d)
+
+    def test_계획이_질문하지_말라면_안_묻는다(self):
+        p = self._plan(state="감정", ask_question=False)
+        d = context.directive_for(1, plan=p)
+        self.assertIn("물음표로 끝내지 마십시오", d)
+
+    def test_계획이_되받을_말을_집어_준다(self):
+        # "하나를 집어 받으십시오" 는 모델이 고르게 하는 지시다.
+        # 이미 골라 놨으면 고르는 일을 시킬 이유가 없다.
+        p = self._plan(state="감정", echo="동생", focus="동생 이야기에 머문다")
+        d = context.directive_for(2, plan=p)
+        self.assertIn("'동생' 를 그대로 한 번 받으십시오", d)
+        self.assertIn("동생 이야기에 머문다", d)
+
+    def test_마무리_계획에는_아무것도_안_얹는다(self):
+        p = self._plan(state="마무리")
+        d = context.directive_for(4, has_people=True, has_verse=True, plan=p)
+        self.assertIn("한두 문장으로 받고 끝내십시오", d)
+
+    def test_요청_계획이면_한_걸음을_놓는다(self):
+        p = self._plan(state="요청", ask_question=True)
+        d = context.directive_for(2, plan=p)
+        self.assertIn("한 걸음을 놓으십시오", d)
+
+    # ── 계획을 코드가 한 번 더 조인다 ──────────────────────────────
+
+    def test_마무리인데_재료를_쓰라는_계획은_무시한다(self):
+        """
+        ★ "마무리인데 인물을 꺼내라" 같은 계획이 실제로 나올 수 있다.
+          판단은 모델에게 맡기되, 우리가 아는 불변식은 코드가 지킨다.
+        """
+        from chat import planner
+
+        raw = {
+            "state": "마무리",
+            "needs_person": True,
+            "needs_verse": True,
+            "ask_question": True,
+            "echo": "고마워",
+            "focus": "인물을 소개한다",
+        }
+        with patch.object(planner, "enabled", return_value=True):
+            with patch.object(planner, "_get_planner") as fake:
+                fake.return_value.invoke.return_value = type(
+                    "R", (), {"content": __import__("json").dumps(raw)}
+                )()
+                p = planner.plan("고마워", [])
+
+        self.assertIsNotNone(p)
+        self.assertTrue(p.closing)
+        self.assertFalse(p.needs_person)
+        self.assertFalse(p.needs_verse)
+
+    def test_계획이_깨지면_None_이고_터지지_않는다(self):
+        from chat import planner
+
+        with patch.object(planner, "enabled", return_value=True):
+            with patch.object(planner, "_get_planner") as fake:
+                fake.return_value.invoke.return_value = type("R", (), {"content": "JSON 아님"})()
+                self.assertIsNone(planner.plan("안녕하세요", []))
+
+    def test_모델이_안_뜨면_None_이고_터지지_않는다(self):
+        from chat import planner
+
+        with patch.object(planner, "enabled", return_value=True):
+            with patch.object(planner, "_get_planner", side_effect=RuntimeError("키 없음")):
+                self.assertIsNone(planner.plan("안녕하세요", []))
+
+    def test_키가_없으면_아예_부르지_않는다(self):
+        from chat import planner
+
+        with override_settings(OPENAI_API_KEY=""):
+            self.assertFalse(planner.enabled())
+            self.assertIsNone(planner.plan("안녕하세요", []))
+
+    def test_스위치로_끌_수_있다(self):
+        # ★ 무대에서 이상하면 이 값만 false 로 두고 재배포한다.
+        from chat import planner
+
+        with override_settings(OPENAI_API_KEY="sk-x", PLANNER_ENABLED=False):
+            self.assertFalse(planner.enabled())
+
+    # ── 안전 바닥은 계획 위에 있다 ────────────────────────────────
+
+    @override_settings(NEO4J_URI="neo4j+s://x", NEO4J_USER="neo4j", NEO4J_PASSWORD="y")
+    def test_위기_신호에는_계획과_무관하게_아무것도_안_얹는다(self):
+        """
+        ★ 플래너는 좋아지는 장치이지 안전 장치가 아니다.
+          계획이 "감정" 이라고 잘못 봐도, 위기어가 보이면 재료를 얹지
+          않는다. 안전의 바닥은 모델 호출이 아니라 코드가 지킨다.
+        """
+        from scripture import graph
+
+        session = ChatSession.objects.create(
+            user=self.user, seed_question="힘들어요", persona_id="john"
+        )
+        p = self._plan(state="감정", needs_person=True, needs_verse=True)
+        fake = [graph.Witness(person="엘리야", felt=["절망"], became=["회복"])]
+
+        with patch.object(graph, "theme_witnesses", return_value=fake):
+            with patch.object(graph, "enabled", return_value=True):
+                m = context.materials(session, "그냥 죽고 싶어요", turn=2, plan=p)
+
+        self.assertIsNone(m.text)
+        self.assertFalse(m.has_people)
+        self.assertFalse(m.has_verse)

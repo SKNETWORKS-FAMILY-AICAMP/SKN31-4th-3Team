@@ -18,8 +18,8 @@ import json
 from django.http import StreamingHttpResponse
 from llm_core.services import generate_llm_response
 from llm_core.services import generate_llm_stream_response
-from .context import for_session as build_verse_context
-from .context import directive_for, has_people
+from .context import directive_for, materials, wants_action
+from .planner import plan as make_plan
 from drf_spectacular.utils import extend_schema
 from llm_core.matching import recommend
 from llm_core.negotiation import EventStreamRenderer, IgnoreClientContentNegotiation
@@ -198,19 +198,27 @@ class ChatCompletionView(APIView):
         #   구절만 넣으면 "이 구절이 무슨 뜻인가" 를 설명하는 답이 나온다.
         #   그 구절에 등장한 인물이 무엇을 겪고 무엇을 지나갔는지가 있으면
         #   "그 사람도 여기 있었습니다" 쪽으로 말이 옮겨 간다.
+        # ★ 답을 쓰기 전에 '이번 답변이 뭘 해야 하는가' 를 먼저 묻는다.
+        #   실패하면 None 이고, 그때는 예전 턴 규칙으로 돈다.
         turn = _turn_of(messages_history)
+        plan = make_plan(user_message_text, messages_history[:-1])
+        material = materials(session, user_message_text, turn=turn, plan=plan)
         try:
             ai_response_text = generate_llm_response(
                 messages_history=messages_history,
                 persona_id=session.persona_id or None,
-                verse_context=build_verse_context(session, user_message_text, turn=turn),
+                verse_context=material.text,
                 # ★ 지시는 사용자 발화 쪽에 붙는다 (chains._with_directive).
                 #   말투도 여기 같이 실린다 — 시스템 프롬프트의 인물 묘사는
                 #   히스토리가 쌓이면 방금 자기가 쓴 문장에 밀린다.
                 directive=directive_for(
                     turn,
-                    has_people=has_people(user_message_text),
+                    has_people=material.has_people,
+                    has_verse=material.has_verse,
+                    asked_for_action=wants_action(user_message_text),
+                    closing=material.closing,
                     persona_id=session.persona_id or "",
+                    plan=plan,
                 ),
             )
         except Exception as e:
@@ -280,11 +288,17 @@ class ChatStreamView(APIView):
         #   제너레이터 안에서 만들면 Neo4j 조회가 첫 조각을 늦춘다.
         #   사용자에게는 "답이 안 나온다" 로 보이는 구간이다.
         turn = _turn_of(messages_history)
-        verse_context = build_verse_context(session, user_message_text, turn=turn)
+        plan = make_plan(user_message_text, messages_history[:-1])
+        material = materials(session, user_message_text, turn=turn, plan=plan)
+        verse_context = material.text
         directive = directive_for(
             turn,
-            has_people=has_people(user_message_text),
+            has_people=material.has_people,
+            has_verse=material.has_verse,
+            asked_for_action=wants_action(user_message_text),
+            closing=material.closing,
             persona_id=session.persona_id or "",
+            plan=plan,
         )
 
         # 5. SSE 스트림 생성 함수 정의
