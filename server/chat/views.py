@@ -205,7 +205,13 @@ class ChatCompletionView(APIView):
                 persona_id=session.persona_id or None,
                 verse_context=build_verse_context(session, user_message_text, turn=turn),
                 # ★ 지시는 사용자 발화 쪽에 붙는다 (chains._with_directive).
-                directive=directive_for(turn, has_people=has_people(user_message_text)),
+                #   말투도 여기 같이 실린다 — 시스템 프롬프트의 인물 묘사는
+                #   히스토리가 쌓이면 방금 자기가 쓴 문장에 밀린다.
+                directive=directive_for(
+                    turn,
+                    has_people=has_people(user_message_text),
+                    persona_id=session.persona_id or "",
+                ),
             )
         except Exception as e:
             return Response(
@@ -275,7 +281,11 @@ class ChatStreamView(APIView):
         #   사용자에게는 "답이 안 나온다" 로 보이는 구간이다.
         turn = _turn_of(messages_history)
         verse_context = build_verse_context(session, user_message_text, turn=turn)
-        directive = directive_for(turn, has_people=has_people(user_message_text))
+        directive = directive_for(
+            turn,
+            has_people=has_people(user_message_text),
+            persona_id=session.persona_id or "",
+        )
 
         # 5. SSE 스트림 생성 함수 정의
         def event_stream():

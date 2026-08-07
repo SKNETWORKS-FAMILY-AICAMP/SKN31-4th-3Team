@@ -191,13 +191,21 @@ class TurnDirectiveTests(TestCase):
         d = context.directive_for(1, has_people=True)
         self.assertIn("아직 이름을 꺼내지 마십시오", d)
 
-    def test_두_번째_답변부터는_반드시_꺼내라고_한다(self):
+    def test_두_번째_답변부터는_이름을_부르라고_한다(self):
         d = context.directive_for(2, has_people=True)
-        self.assertIn("반드시 부르십시오", d)
+        self.assertIn("이름을 부르십시오", d)
         self.assertNotIn("아직 이름을 꺼내지 마십시오", d)
 
-    def test_꺼낼_인물이_없으면_지시도_없다(self):
-        self.assertEqual(context.directive_for(3, has_people=False), "")
+    def test_꺼낼_인물이_없어도_말투_지시는_나간다(self):
+        """
+        ★ 예전에는 여기서 빈 문자열이었다.
+          인물이 없는 턴이 대화의 절반인데, 그 절반이 전부
+          "공감 한 줄 + 일반론 + 질문" 으로 나왔다. 질문 빈도와
+          되받기는 그래프가 있든 없든 지켜야 하는 규칙이다.
+        """
+        d = context.directive_for(3, has_people=False)
+        self.assertNotEqual(d, "")
+        self.assertNotIn("이 감정을 지나간 사람들", d)
 
     def test_지시는_조건문이_아니다(self):
         # ★ "~라면 ~하십시오" 는 모델이 조건을 스스로 판정해야 하고,
@@ -214,6 +222,42 @@ class TurnDirectiveTests(TestCase):
         """
         self.assertGreaterEqual(context.SEED_VERSE_TURNS, 1)
         self.assertLessEqual(context.SEED_VERSE_TURNS, 4)
+
+
+class AskCadenceTests(TestCase):
+    """질문 빈도 — 상담이 설문이 되지 않게."""
+
+    def test_첫_답변은_물어도_된다(self):
+        # 아직 아는 것이 없다. 여기서 안 물으면 대화가 안 열린다.
+        self.assertIn("물어도 됩니다", context.directive_for(1, has_people=False))
+
+    def test_두_번째_답변은_질문_없이_끝낸다(self):
+        """
+        ★ 실제로 나왔던 대화다.
+          "어떤 감정이 드시나요" → "어떻게 다루고 계신가요"
+          → "무엇이 가장 힘드신가요". 문장은 다 맞는데 사용자가
+          계속 답안지를 채우는 자리에 놓인다.
+        """
+        d = context.directive_for(2, has_people=False)
+        self.assertIn("물음표로 끝내지 마십시오", d)
+        self.assertNotIn("물어도 됩니다", d)
+
+    def test_한_턴_걸러_한_번이다(self):
+        # 빈도를 모델에게 세라고 하지 않는다. 서버가 정해서 알려 준다.
+        asks = [context._may_ask(t) for t in range(1, 7)]
+        self.assertEqual(asks, [True, False, True, False, True, False])
+
+    def test_구절은_첫_답변에는_안_꺼낸다(self):
+        # 무슨 일인지도 모르면서 구절을 내밀면 훈수가 된다.
+        self.assertNotIn("구절을 한 줄", context.directive_for(1, has_people=False))
+        self.assertIn("구절을 한 줄", context.directive_for(2, has_people=False))
+
+    def test_상담_교본_문장을_금지한다(self):
+        # 누구에게나 쓸 수 있는 문장은 아무에게도 닿지 않는다.
+        from llm_core.prompts import COMMON_RULES
+
+        for banned in ("많이 힘드시겠네요", "어떤 감정이 드시나요", "자연스러운 일입니다"):
+            self.assertIn(banned, COMMON_RULES)
 
 
 class TurnCountTests(TestCase):
@@ -263,7 +307,7 @@ class PromptWordingTests(TestCase):
 
         prompt = build_system_prompt("john", verse_context="재료")
         self.assertNotIn("두 번째 답변부터", prompt)
-        self.assertNotIn("반드시 부르십시오", prompt)
+        self.assertNotIn("[이번 답변 지침]", prompt)
 
 
 class DirectivePlacementTests(TestCase):
