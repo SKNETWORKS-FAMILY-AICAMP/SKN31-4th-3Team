@@ -53,28 +53,44 @@
 ![WBS](docs/image/WBS.png)
 
 ## 기술스택
+ 
 #### Frontend
-![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=React&logoColor=black)
-![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=Vite&logoColor=white)
-![Axios](https://img.shields.io/badge/Axios-5A29E4?style=for-the-badge&logo=Axios&logoColor=white)
-
+![React](https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=React&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=TypeScript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite_7-646CFF?style=for-the-badge&logo=Vite&logoColor=white)
+![React Router](https://img.shields.io/badge/React_Router_7-CA4245?style=for-the-badge&logo=ReactRouter&logoColor=white)
+![Canvas 2D](https://img.shields.io/badge/Canvas_2D-E34F26?style=for-the-badge&logo=HTML5&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=Vitest&logoColor=white)
+ 
 #### Backend
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=Python&logoColor=white)
-![Django](https://img.shields.io/badge/Django-009688?style=for-the-badge&logo=Django&logoColor=white)
+![Python](https://img.shields.io/badge/Python_3.12-3776AB?style=for-the-badge&logo=Python&logoColor=white)
+![Django](https://img.shields.io/badge/Django_5.2-092E20?style=for-the-badge&logo=Django&logoColor=white)
 ![Django REST Framework](https://img.shields.io/badge/Django_REST_Framework-A30000?style=for-the-badge&logo=django&logoColor=white)
-![JWT](https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=JSON%20web%20tokens)
-
+![JWT](https://img.shields.io/badge/Simple_JWT-000000?style=for-the-badge&logo=JSON%20web%20tokens&logoColor=white)
+![Swagger](https://img.shields.io/badge/drf--spectacular-85EA2D?style=for-the-badge&logo=Swagger&logoColor=black)
+![Gunicorn](https://img.shields.io/badge/Gunicorn-499848?style=for-the-badge&logo=Gunicorn&logoColor=white)
+![Pytest](https://img.shields.io/badge/pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
+ 
 #### AI & Frameworks
-![OpenAI](https://img.shields.io/badge/OpenAI-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
-
+![OpenAI](https://img.shields.io/badge/OpenAI_GPT--4o--mini-412991?style=for-the-badge&logo=OpenAI&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=LangChain&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=Ollama&logoColor=white)
+![Qwen3 Embedding](https://img.shields.io/badge/qwen3--embedding:8b-8E75B2?style=for-the-badge&logo=Alibabacloud&logoColor=white)
+![SSE](https://img.shields.io/badge/SSE_Streaming-FF6F00?style=for-the-badge&logo=Server&logoColor=white)
+ 
 #### Database
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=PostgreSQL&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL_17-4169E1?style=for-the-badge&logo=PostgreSQL&logoColor=white)
+![pgvector](https://img.shields.io/badge/pgvector_HNSW-4169E1?style=for-the-badge&logo=PostgreSQL&logoColor=white)
+![Neo4j](https://img.shields.io/badge/Neo4j_Aura-4581C3?style=for-the-badge&logo=Neo4j&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=SQLite&logoColor=white)
-
+ 
 #### Infrastructure & DevOps
-![Amazon EC2](https://img.shields.io/badge/Amazon_EC2-FF9900?style=for-the-badge&logo=AmazonEC2&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=Docker&logoColor=white)
+![Amazon EC2](https://img.shields.io/badge/EC2_g4dn.xlarge-FF9900?style=for-the-badge&logo=AmazonEC2&logoColor=white)
+![Amazon RDS](https://img.shields.io/badge/Amazon_RDS-527FFF?style=for-the-badge&logo=AmazonRDS&logoColor=white)
+![NVIDIA](https://img.shields.io/badge/NVIDIA_T4-76B900?style=for-the-badge&logo=NVIDIA&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?style=for-the-badge&logo=Docker&logoColor=white)
 ![Nginx](https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=Nginx&logoColor=white)
+![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=GitHub&logoColor=white)
 
 ## 디렉토리 구조
 ```
