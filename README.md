@@ -331,6 +331,42 @@ erDiagram
 ```
 ### 3) 주요 화면 구조 (화면설계서.md)
 ![alt text](docs/image/image.png)
+
+### 4) 주요 API
+1. Authentication & User (/api/v1/auth/)  
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| POST | /api/v1/auth/register/ | 회원가입 | X |
+| POST | /api/v1/auth/login/ | 로그인 (Access/Refresh Token 발급) | X |
+| POST | /api/v1/auth/refresh/ | Access Token 재발급 | X |
+| GET | /api/v1/auth/me/ | 본인 정보 조회 | O |
+| PUT / PATCH | /api/v1/auth/me/ | 본인 정보 수정 (MBTI 변경) | O | 
+* /api/v1/auth/me/의 정보 수정은 별도 업데이트용 스키마(UserUpdate)를 사용하여 MBTI 수정만 허용합니다.
+
+2. Chat Session & Completion (/api/v1/chat/)
+
+| Method | Endpoint | Description | Auth Required | 
+|---|---|---|---|
+| GET | /api/v1/chat/sessions/ | 대화방 목록 조회 | O | 
+| POST | /api/v1/chat/sessions/ | 새 대화방 생성 | O |
+| GET | /api/v1/chat/sessions/{id}/ | 특정 대화방 상세 조회 및 대화 내역 확인 | O |
+| DELETE | /api/v1/chat/sessions/{id}/ | 특정 대화방 삭제 | O |
+| GET | /api/v1/chat/sessions/{session_id}/messages/ | 특정 대화방의 메시지 목록 조회 | O | 
+| POST | /api/v1/chat/sessions/{session_id}/completion/ | LLM 답변 생성 요청 (동기 방식) | O |
+| POST | /api/v1/chat/sessions/{session_id}/stream/ | LLM 답변 생성 요청 (SSE 기반 실시간 스트리밍) | O |
+* 스트리밍 응답(stream)은 text/event-stream 타입을 반환하며 실시간 대화 처리에 사용됩니다.
+
+3) Scripture & Galaxy Data (/api/v1/scripture/)
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| POST | /api/v1/scripture/ask/ | 고민 입력 및 추천 구절/공감/묵상 결과 수신 | Optional |
+| GET | /api/v1/scripture/galaxies/ | 전체 은하 목록 조회 (13개) | Optional |
+| GET | /api/v1/scripture/verses/ | 전체 성경 구절 목록 조회 (702개 데이터 한 번에 반환) | Optional |
+| GET | /api/v1/scripture/verses/{id}/ | 특정 구절 상세 조회 | Optional |
+* /scripture/ask/: 위기 상황 판정 시 프론트엔드가 자체 안전 안내를 우선 노출하는 로직을 권장합니다.
+* /scripture/verses/: 별자리 및 은하 전체 렌더링 특성상 페이지네이션 없이 702개 전체 구절 데이터를 일괄 전달합니다. Coordinate(좌표) 데이터는 DB에 저장하지 않으며 프론트엔드에서 galaxy_id + order 조합으로 연산합니다.
 ---
 ## [로컬환경 실행 방법](docs/window_로컬_실행_가이드.md)
 ### 백엔드 — Windows
@@ -414,7 +450,27 @@ http://localhost:5173/ 접속
   * 그래서 관계에 대한 가중치 설정을 여러번 수정했다.
   * 질문을 하면 딱딱하고 관련성이 낮은 답변이 나와서 채팅의 질이 자연스럽지 않았다.
   * 그래서 맥락읽기는 모델이 하도록 판단이 필요한 자리에는 요청사항을 넣지 않았다.
-
+---
 ### 웹 애플리케이션 시연 : 안혁진
 ### LLM 모델 비교
 ![대답 비교](docs/image/그림01.png)
+---
+## 프로젝트 회고
+### 안혁진
+```
+3차 프로젝트를 이어 4차 프로젝트까지 중간에 팀원 한분이 사정이 있어 과정을 그만두긴 했지만 그래도 남은 3명이서 서로 머리를 맞대면서 열심히 디벨롭 시킨 결과 전보다 더 나은 결과물이 나왔다고 생각해서 만족스러웠다 저번에 완성 못하였던 react를 활용한 프론트엔드 구현을 이번에 streamlit에서 react로 변환하며 한층 더 업그레이드 된 프론트엔드를 구현해볼수있어 나의 기술스택을 키우는데 많은 도움이 된 것 같고 저번 프로젝트에서 아이디어 + 구성을 리빌딩하면서 발생하는 오류들그리고 분담을 하고 모든 구성을 통합할때 생기는 오류들을 경험하며 앞으로의 프로젝트에 있어 확실한 기획 통일성있는 명세서 등 개발에 들어가기전 좀 더 팀원들과 상세한 논의가 필요하다는 점도 배우게 되었다. 연속 PM을 맡게 되면서 어깨가 많이 무거웠지만 팀원들이 같이 나눠들고 부담감을 많이 줄여주어서 너무 고마웠다 너무너무 고생많이한 팀원들과 나에게 박수를 치며 이번 프로젝트 회고를 마친다.
+```
+### 김재원
+```
+처음에는 성경을 통해 말씀을 AI와 연결할 수 있을까 하는 걱정과 우려가 있었습니다
+하지만 시작하고 나서는 방대한 성경 데이터도 AI 안에서 충분히 진행할 수 있어 놀랍고 재미있는 경험이자 프로젝트였던 것 같습니다.
+Vector RAG, Graph RAG를 Neo4j에 연결하는 작업은 성경의 다양한 감정과 중복된 단어들을 처리하면서 이렇게 방대한 것도 연결할 수 있음에 좋은 학습을하게 되어 영광이었습니다.
+```
+### 김가율
+```
+3차 프로젝트가 기본 챗봇시스템이었다면 이번 프로젝트에서는 그것을 확장하는 웹 애플리케이션을 구현하는 것이었다.
+Django 파트 수업을 아주 열심히 들었고, 자신있게 Django백엔드를 맡겠다고 나섰다. 
+프로젝트 준비를 하는 일주일이 한달같은 느낌이 들 정도로 치열하게 준비했다. 
+사실 3차 프로젝트까지 진행하면서 많이 지쳐있었는데 4차 프로젝트 시작하면서부터 갑자기 열정이 솟아 올랐고, 같이 모든 열정을 불태워준 팀원들에게 정말 고마움을 느낀다.
+덕분에 최종프로젝트인 것처럼 4차 프로젝트를 마무리 할 수 있었다. 
+```

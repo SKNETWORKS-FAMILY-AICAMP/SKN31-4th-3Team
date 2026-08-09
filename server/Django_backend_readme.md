@@ -5,7 +5,7 @@
 - **역할:** Django 백엔드 개발 리드
 - **기술 스택:** Python 3.13, Django 6.0.7, DRF, LangChain/OpenAI, PostgreSQL, Redis
 - **연동 대상:** React (Frontend), LLM API / Vector DB
-- **작성일자:** 2026-07-31 ~ 2026-
+- **작성일자:** 2026-07-31 ~ 2026-08-06
 - **작성자:** 김가율
 
 ---
